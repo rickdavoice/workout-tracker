@@ -1,4 +1,4 @@
-// --- Firebase Setup ---
+// --- Firebase App (already initialized in HTML) ---
 const db = firebase.firestore();
 
 // --- Variables ---
@@ -7,231 +7,235 @@ let currentIndex = 0;
 let currentDate = getLocalISODate();
 let rest = 90;
 let interval;
-
-const exercises = {};   // exerciseID -> {name}
-const workouts = {};    // workoutID -> {name, exercises: [exerciseID]}
-const logCache = {};    // date -> workoutID -> [sets]
+let workouts = {};          // { workoutId: {name, exercises: [exerciseId,...]} }
+let exercises = {};         // { exerciseId: exerciseName }
+let logCache = {};          // { date: { workoutId: [sets] } }
 
 // --- Utility ---
-function getLocalISODate(d = new Date()) {
+function getLocalISODate(d = new Date()){
   const tzo = d.getTimezoneOffset();
   return new Date(d.getTime() - tzo*60*1000).toISOString().slice(0,10);
 }
 
 // --- Timer ---
 function updateTimerDisplay(){ document.getElementById("timer").innerText = rest; }
-function startTimer(){ 
-  clearInterval(interval); 
-  rest=90; 
-  updateTimerDisplay(); 
-  interval = setInterval(() => {
-      rest--; 
-      updateTimerDisplay(); 
-      if(rest <= 0){ 
-          clearInterval(interval); 
-          alert("Rest done 💪"); 
-      }
-  }, 1000); 
+function startTimer(){
+  clearInterval(interval);
+  rest = 90; updateTimerDisplay();
+  interval = setInterval(()=>{
+    rest--;
+    updateTimerDisplay();
+    if(rest<=0){ clearInterval(interval); alert("Rest done 💪"); }
+  },1000);
 }
 
 // --- Input adjustments ---
-function changeValue(id, amount){ 
-  let el = document.getElementById(id); 
-  let newValue = parseFloat(el.value||0) + amount; 
-  if(newValue < 0) newValue = 0; 
-  el.value = newValue; 
+function changeValue(id, amount){
+  const el = document.getElementById(id);
+  if(!el) return;
+  let newValue = parseFloat(el.value||0) + amount;
+  if(newValue<0) newValue = 0;
+  el.value = newValue;
 }
 
 // --- Calendar ---
 function generateCalendar(){
-  const cal=document.getElementById("calendar");
-  cal.innerHTML="";
-  const today=new Date();
-  for(let i=-7;i<7;i++){
-    const d=new Date(); d.setDate(today.getDate()+i);
-    const iso=getLocalISODate(d);
-    const dayDiv=document.createElement("div");
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+  const today = new Date();
+  for(let i=-7; i<7; i++){
+    const d = new Date(); d.setDate(today.getDate()+i);
+    const iso = getLocalISODate(d);
+    const dayDiv = document.createElement("div");
     dayDiv.className="day";
     if(iso===currentDate) dayDiv.classList.add("today");
     const completed = logCache[iso]?.[currentWorkoutId]?.length;
     if(completed) dayDiv.classList.add("completed");
-    dayDiv.innerHTML=`${d.toLocaleDateString('en-US',{weekday:'short'}).charAt(0)}<br>${d.getDate()}`;
-    dayDiv.onclick=()=>{ currentDate=iso; loadExercise(); generateCalendar(); };
+    dayDiv.innerHTML = `${d.toLocaleDateString('en-US',{weekday:'short'}).charAt(0)}<br>${d.getDate()}`;
+    dayDiv.onclick = ()=>{ currentDate=iso; loadExercise(); generateCalendar(); };
     cal.appendChild(dayDiv);
   }
-  const todayEl=document.querySelector(".day.today");
-  if(todayEl) todayEl.scrollIntoView({behavior:"smooth", inline:"center"});
+  const todayEl = document.querySelector(".day.today");
+  if(todayEl){ todayEl.scrollIntoView({behavior:"smooth", inline:"center"}); }
 }
 
-// --- Load sets for an exercise ---
-function getSets(exId){
-  const sets = logCache[currentDate]?.[currentWorkoutId] || [];
-  const filtered = sets.filter(s => s.exerciseId === exId).slice(-5);
-  return filtered.map((s,i)=>{
-      const noteIcon = s.notes
-          ? `<span style="cursor:pointer" onclick="alert('Note: ${s.notes.replace(/'/g,"\\'")}')">📝</span>`
-          : `<span style="width:24px;display:inline-block"></span>`;
-      const deleteIcon = `<span style="cursor:pointer;color:red;" onclick="deleteSet('${s.id}')" title="Delete set">❌</span>`;
-      return `<div style="display:flex;gap:10px;align-items:center">
-                  <span style="flex:1">${i+1}</span>
-                  <span style="flex:2">${s.weight} lbs</span>
-                  <span style="flex:2">${s.reps} reps</span>
-                  <span style="flex:0">${noteIcon}</span>
-                  <span style="flex:0">${deleteIcon}</span>
-              </div>`;
-  }).join("");
-}
-
-// --- Delete set ---
-async function deleteSet(setID){
-  if(!confirm("Delete this set?")) return;
-  try {
-    await db.collection("workout-logs").doc(setID).delete();
-    // update local cache
-    for(let date in logCache){
-      if(logCache[date][currentWorkoutId]){
-        logCache[date][currentWorkoutId] = logCache[date][currentWorkoutId].filter(s=>s.id!==setID);
-      }
-    }
-    loadExercise();
-    generateCalendar();
-  } catch(e){
-    console.error(e);
-    alert("Delete failed");
-  }
-}
-
-// --- Load data from Firestore ---
+// --- Load data ---
 async function loadData(){
   try{
-    // --- Load exercises ---
+    // --- Exercises ---
     const exSnap = await db.collection("exercises").get();
-    exSnap.forEach(doc => exercises[doc.id] = {name: doc.data().name});
+    exercises = {};
+    exSnap.forEach(doc=>{ exercises[doc.id] = doc.data().name; });
 
-    // --- Load workouts ---
-    const wSnap = await db.collection("workouts").get();
-    wSnap.forEach(doc => workouts[doc.id] = {name: doc.data().name, exercises: []});
-
-    // --- Load workout-exercises in order ---
-    const weSnap = await db.collection("workout-exercises").orderBy("order").get();
-    weSnap.forEach(doc=>{
-      const { workoutID, exerciseID } = doc.data();
-      if(workouts[workoutID]) workouts[workoutID].exercises.push(exerciseID);
+    // --- Workouts ---
+    const workoutSnap = await db.collection("workouts").get();
+    workouts = {};
+    workoutSnap.forEach(doc=>{
+      workouts[doc.id] = { name: doc.data().name, exercises: [] };
     });
 
-    // --- Load workout-logs ---
-    const logSnap = await db.collection("workout-logs").get();
-    logSnap.forEach(doc=>{
+    // --- Workout-Exercises mapping ---
+    const wxSnap = await db.collection("workout-exercises").orderBy("order").get();
+    wxSnap.forEach(doc=>{
       const data = doc.data();
-      if(!logCache[data.date]) logCache[data.date] = {};
-      if(!logCache[data.date][data.workoutID]) logCache[data.date][data.workoutID] = [];
-      logCache[data.date][data.workoutID].push({
-        id: doc.id,
-        exerciseId: data.exerciseID,
-        weight: data.weight,
-        reps: data.reps,
-        notes: data.notes || ""
-      });
+      if(workouts[data.workoutID]){
+        workouts[data.workoutID].exercises.push(data.exerciseID);
+      }
     });
 
-    // --- Set default workout ---
-    currentWorkoutId = Object.keys(workouts)[0] || null;
+    // --- Workout logs ---
+    const logSnap = await db.collection("workout-logs").get();
+    logCache = {};
+    logSnap.forEach(doc=>{
+      const set = doc.data();
+      const date = set.date;
+      const workoutId = set.workoutID;
+      if(!logCache[date]) logCache[date]={};
+      if(!logCache[date][workoutId]) logCache[date][workoutId]=[];
+      logCache[date][workoutId].push({...set, id: doc.id});
+    });
 
-    loadExercise();
+    setupTabs();
+    if(Object.keys(workouts).length>0){
+      currentWorkoutId = Object.keys(workouts)[0];
+      loadWorkout(currentWorkoutId);
+    }
     generateCalendar();
-    updateTabs(currentWorkoutId);
+  }catch(e){ console.error(e); alert("Failed to load data"); }
+}
 
-  } catch(e){ console.error(e); alert("Failed to load data"); }
+// --- Setup workout buttons dynamically ---
+function setupTabs(){
+  const tabContainer = document.querySelector(".tabs");
+  tabContainer.innerHTML = "";
+  Object.keys(workouts).forEach((id, idx)=>{
+    const btn = document.createElement("button");
+    btn.textContent = workouts[id].name || `Workout ${String.fromCharCode(65+idx)}`;
+    btn.dataset.workout = id;
+    btn.onclick = ()=> loadWorkout(id);
+    tabContainer.appendChild(btn);
+  });
+  updateTabs(currentWorkoutId);
+}
+function updateTabs(id){
+  document.querySelectorAll(".tabs button").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.workout===id);
+  });
 }
 
 // --- Load exercise card ---
 function loadExercise(){
-  if(!currentWorkoutId) return;
+  if(!currentWorkoutId || !workouts[currentWorkoutId]){
+    document.getElementById("exerciseCard").innerHTML = "<p>No workout selected.</p>";
+    return;
+  }
   const container = document.getElementById("exerciseCard");
   const exId = workouts[currentWorkoutId].exercises[currentIndex];
-  if(!exId) {
+  if(!exId){
     container.innerHTML = "<p>No exercises for this workout.</p>";
     return;
   }
+  const exName = exercises[exId] || "Exercise";
+  const setsHTML = getSets(exId);
 
-  const weightVal = document.getElementById("weight")?.value || "";
-  const repsVal = document.getElementById("reps")?.value || "";
-  const notesVal = document.getElementById("notes")?.value || "";
+  // --- Swipe animation ---
+  container.style.transition = "transform 0.3s";
+  container.style.transform = "translateX(100%)";
+  setTimeout(()=> container.style.transform = "translateX(0)", 10);
 
-  container.innerHTML = `<div class="card">
-      <div class="exercise">${exercises[exId].name}</div>
+  container.innerHTML = `
+    <div class="card">
+      <div class="exercise">${exName}</div>
       <div class="input-group">
-          <button onclick="changeValue('weight',-2.5)">-</button>
-          <input id="weight" placeholder="Weight (lbs)" type="number" value="${weightVal}">
-          <button onclick="changeValue('weight',2.5)">+</button>
+        <button onclick="changeValue('weight',-2.5)">-</button>
+        <input id="weight" placeholder="Weight (lbs)" type="number">
+        <button onclick="changeValue('weight',2.5)">+</button>
       </div>
       <div class="input-group">
-          <button onclick="changeValue('reps',-1)">-</button>
-          <input id="reps" placeholder="Reps" type="number" value="${repsVal}">
-          <button onclick="changeValue('reps',1)">+</button>
+        <button onclick="changeValue('reps',-1)">-</button>
+        <input id="reps" placeholder="Reps" type="number">
+        <button onclick="changeValue('reps',1)">+</button>
       </div>
       <div class="input-group">
-          <input id="notes" placeholder="Notes (optional)" value="${notesVal}">
+        <input id="notes" placeholder="Notes (optional)">
       </div>
       <button class="full-width save" onclick="saveSet()">Save</button>
-      <div class="sets">${getSets(exId)}</div>
-  </div>`;
+      <div class="sets">${setsHTML}</div>
+    </div>
+  `;
+}
+
+// --- Get sets ---
+function getSets(exId){
+  const sets = logCache[currentDate]?.[currentWorkoutId] || [];
+  const filtered = sets.filter(s=>s.exerciseID===exId).slice(-5);
+  return filtered.map((s,i)=>{
+    const noteIcon = s.notes ? `<span style="cursor:pointer" onclick="alert('Note: ${s.notes.replace(/'/g,"\\'")}')">📝</span>` : `<span style="width:24px;display:inline-block"></span>`;
+    const deleteIcon = `<span style="cursor:pointer;color:red;" onclick="deleteSet('${s.id}')">❌</span>`;
+    return `<div style="display:flex;gap:10px;align-items:center">
+      <span style="flex:1">${i+1}</span>
+      <span style="flex:2">${s.weight}</span>
+      <span style="flex:2">${s.reps}</span>
+      <span style="flex:0">${noteIcon}</span>
+      <span style="flex:0">${deleteIcon}</span>
+    </div>`;
+  }).join("");
 }
 
 // --- Save set ---
 async function saveSet(){
-  if(!currentWorkoutId) return;
   const exId = workouts[currentWorkoutId].exercises[currentIndex];
-  const weight = parseFloat(document.getElementById("weight").value);
-  const reps = parseInt(document.getElementById("reps").value);
-  const notes = document.getElementById("notes")?.value || "";
-  if(!weight||!reps){ alert("Please enter weight and reps"); return; }
+  if(!exId) return;
+  const weight = document.getElementById("weight").value;
+  const reps = document.getElementById("reps").value;
+  const notes = document.getElementById("notes").value || "";
+  if(!weight||!reps){ alert("Enter weight & reps"); return; }
 
   try{
     const docRef = await db.collection("workout-logs").add({
       date: currentDate,
       workoutID: currentWorkoutId,
       exerciseID: exId,
-      weight,
-      reps,
-      notes
+      weight, reps, notes
     });
-
-    // update local cache
-    if(!logCache[currentDate]) logCache[currentDate] = {};
-    if(!logCache[currentDate][currentWorkoutId]) logCache[currentDate][currentWorkoutId] = [];
-    logCache[currentDate][currentWorkoutId].push({
-      id: docRef.id,
-      exerciseId: exId,
-      weight,
-      reps,
-      notes
-    });
-
+    if(!logCache[currentDate]) logCache[currentDate]={};
+    if(!logCache[currentDate][currentWorkoutId]) logCache[currentDate][currentWorkoutId]=[];
+    logCache[currentDate][currentWorkoutId].push({id: docRef.id, exerciseID: exId, weight, reps, notes});
     startTimer();
     loadExercise();
     generateCalendar();
-  } catch(e){ console.error(e); alert("Failed to save set."); }
+  }catch(e){ console.error(e); alert("Failed to save set"); }
+}
+
+// --- Delete set ---
+async function deleteSet(setId){
+  if(!confirm("Delete this set?")) return;
+  try{
+    await db.collection("workout-logs").doc(setId).delete();
+    for(let date in logCache){
+      if(logCache[date][currentWorkoutId]){
+        logCache[date][currentWorkoutId] = logCache[date][currentWorkoutId].filter(s=>s.id!==setId);
+      }
+    }
+    loadExercise();
+    generateCalendar();
+  }catch(e){ console.error(e); alert("Delete failed"); }
 }
 
 // --- Next exercise ---
 function nextExercise(){
-  if(!currentWorkoutId) return;
-  if(currentIndex < workouts[currentWorkoutId].exercises.length - 1){
+  if(!workouts[currentWorkoutId]) return;
+  if(currentIndex<workouts[currentWorkoutId].exercises.length-1){
     currentIndex++;
+    loadExercise();
   } else {
     alert("Workout Complete! 🎉");
     currentIndex = 0;
+    loadExercise();
   }
-  loadExercise();
 }
 
-// --- Tabs ---
-function updateTabs(workoutId){
-  document.querySelectorAll('.tabs button').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.workout === workoutId);
-  });
-}
+// --- Load workout ---
 function loadWorkout(workoutId){
   currentWorkoutId = workoutId;
   currentIndex = 0;
@@ -240,16 +244,16 @@ function loadWorkout(workoutId){
   generateCalendar();
 }
 
-// --- Swipe navigation ---
+// --- Swipe gesture ---
 let touchStartX=0;
-const cardContainer=document.getElementById("exerciseCard");
+const cardContainer = document.getElementById("exerciseCard");
 if(cardContainer){
-  cardContainer.addEventListener('touchstart', e=>{ touchStartX=e.changedTouches[0].clientX; });
+  cardContainer.addEventListener('touchstart', e=>{ touchStartX = e.changedTouches[0].clientX; });
   cardContainer.addEventListener('touchend', e=>{
-    const delta=e.changedTouches[0].clientX - touchStartX;
-    if(Math.abs(delta) > 50){
-      delta < 0 ? nextExercise() : currentIndex>0 && currentIndex--;
-      loadExercise();
+    const delta = e.changedTouches[0].clientX - touchStartX;
+    if(Math.abs(delta)>50){
+      if(delta<0) nextExercise(); 
+      else if(currentIndex>0){ currentIndex--; loadExercise(); }
     }
   });
 }
