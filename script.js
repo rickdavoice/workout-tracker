@@ -139,9 +139,48 @@ function loadExercise(){
   const setsHTML = getSets(exId);
 
   // --- Swipe animation ---
-  container.style.transition = "transform 0.3s";
-  container.style.transform = "translateX(100%)";
-  setTimeout(()=> container.style.transform = "translateX(0)", 10);
+function animateCard(direction) {
+    const card = document.getElementById("exerciseCard");
+    if (!card) return;
+
+    const offset = direction === "next" ? 100 : -100;
+    // Slide out
+    card.style.transform = `translateX(${offset}%)`;
+    
+    setTimeout(() => {
+        // Load new exercise content
+        loadExercise();
+
+        // Slide in from opposite side
+        card.style.transform = `translateX(${-offset}%)`;
+
+        // Return to center
+        setTimeout(() => {
+            card.style.transform = `translateX(0)`;
+        }, 20);
+    }, 200); // match half of transition
+}
+  
+ let touchStartX = 0;
+const cardContainer = document.getElementById("exerciseCardContainer");
+
+if (cardContainer) {
+    cardContainer.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].clientX;
+    });
+    cardContainer.addEventListener('touchend', e => {
+        const delta = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(delta) > 50) {
+            if (delta < 0) {
+                animateCard("next");
+                currentIndex = Math.min(currentIndex + 1, workouts[currentWorkoutId].exercises.length - 1);
+            } else {
+                animateCard("prev");
+                currentIndex = Math.max(currentIndex - 1, 0);
+            }
+        }
+    });
+}
 
   container.innerHTML = `
     <div class="card">
