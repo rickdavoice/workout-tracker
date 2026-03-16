@@ -1,44 +1,26 @@
-// -------------------- Firebase Setup --------------------
-const firebaseConfig = {
-  apiKey: "AIzaSyCM45pVfshkhb4_oG8VX08S2blYQlA8nSA",
-  authDomain: "workout-tracker-3bf5e.firebaseapp.com",
-  projectId: "workout-tracker-3bf5e",
-  storageBucket: "workout-tracker-3bf5e.firebasestorage.app",
-  messagingSenderId: "1051835495537",
-  appId: "1:1051835495537:web:d825f0a61ccce60f4bd7d0",
-  measurementId: "G-7MK068BRL8"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+// --- Firebase Variables ---
 const db = firebase.firestore();
 
-// -------------------- Variables --------------------
+// --- App Variables ---
 let currentWorkout = "A";
 let currentIndex = 0;
 let navigationDirection = "next";
 let currentDate = getLocalISODate();
 let rest = 90;
 let interval;
-
-let exercisesMap = {};         // { id: name }
-let exerciseNameToID = {};     // { name: id }
-let workoutsMap = {};          // { A: [ids], B: [ids] }
+let exercisesMap = {};      // {id: name}
+let exerciseNameToID = {};  // {name: id}
 const workouts = { A: [], B: [] };
+let logCache = {};           // {date: {A: [], B: []}}
 
-// Local cache for instant load
-let logCache = {}; // { date: { workout: [sets] } }
-
-// -------------------- Utility --------------------
+// --- Utility ---
 function getLocalISODate(d = new Date()) {
   const tzo = d.getTimezoneOffset();
   return new Date(d.getTime() - tzo * 60 * 1000).toISOString().slice(0, 10);
 }
 
-// -------------------- Timer --------------------
-function updateTimerDisplay() {
-  document.getElementById("timer").innerText = rest;
-}
+// --- Timer ---
+function updateTimerDisplay() { document.getElementById("timer").innerText = rest; }
 function startTimer() {
   clearInterval(interval);
   rest = 90;
@@ -53,7 +35,7 @@ function startTimer() {
   }, 1000);
 }
 
-// -------------------- Input Adjustments --------------------
+// --- Input adjustments ---
 function changeValue(id, amount) {
   const el = document.getElementById(id);
   let newValue = parseFloat(el.value || 0) + amount;
@@ -61,7 +43,7 @@ function changeValue(id, amount) {
   el.value = newValue;
 }
 
-// -------------------- Calendar --------------------
+// --- Calendar ---
 function generateCalendar() {
   const cal = document.getElementById("calendar");
   cal.innerHTML = "";
@@ -74,7 +56,7 @@ function generateCalendar() {
     if (iso === currentDate) dayDiv.classList.add("today");
     const completed = logCache[iso]?.[currentWorkout]?.length;
     if (completed) dayDiv.classList.add("completed");
-    dayDiv.innerHTML = `${d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0)}<br>${d.getDate()}`;
+    dayDiv.innerHTML = `${d.toLocaleDateString('en-US', {weekday:'short'}).charAt(0)}<br>${d.getDate()}`;
     dayDiv.onclick = () => { currentDate = iso; loadExercise(); generateCalendar(); };
     cal.appendChild(dayDiv);
   }
@@ -82,7 +64,54 @@ function generateCalendar() {
   if (todayEl) todayEl.scrollIntoView({ behavior: "smooth", inline: "center" });
 }
 
-// -------------------- Load Exercise Card --------------------
+// --- Load Exercises & Workouts from Firebase ---
+async function loadExercisesAndSets() {
+  try {
+    // Load exercises
+    const snap = await db.collection('exercises').get();
+    exercisesMap = {};
+    exerciseNameToID = {};
+    workouts.A = [];
+    workouts.B = [];
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      exercisesMap[data.id] = data.name;
+      exerciseNameToID[data.name] = data.id;
+
+      if (data.workout === "A") workouts.A.push(data.name);
+      else if (data.workout === "B") workouts.B.push(data.name);
+    });
+
+    // Load logged sets
+    const setsSnap = await db.collection('workouts').get();
+    logCache = {};
+
+    setsSnap.forEach(doc => {
+      const set = doc.data();
+      if (!logCache[set.date]) logCache[set.date] = {};
+      if (!logCache[set.date][set.workout]) logCache[set.date][set.workout] = [];
+      logCache[set.date][set.workout].push({
+        id: doc.id,
+        exercise: set.exercise,
+        weight: set.weight,
+        reps: set.reps,
+        notes: set.notes || ""
+      });
+    });
+
+    // Load first exercise and calendar
+    loadExercise();
+    generateCalendar();
+    updateTabs(currentWorkout);
+
+  } catch (e) {
+    console.error(e);
+    alert("Failed to load exercises or sets. Check your internet connection.");
+  }
+}
+
+// --- Load exercise card ---
 function getSets(ex) {
   const sets = logCache[currentDate]?.[currentWorkout] || [];
   const filtered = sets.filter(s => s.exercise === ex).slice(-5);
@@ -109,26 +138,26 @@ function loadExercise() {
   const notesVal = document.getElementById("notes")?.value || "";
 
   container.innerHTML = `<div class="card">
-    <div class="exercise">${ex}</div>
-    <div class="input-group">
-      <button onclick="changeValue('weight',-2.5)">-</button>
-      <input id="weight" placeholder="Weight (lbs)" type="number" value="${weightVal}">
-      <button onclick="changeValue('weight',2.5)">+</button>
-    </div>
-    <div class="input-group">
-      <button onclick="changeValue('reps',-1)">-</button>
-      <input id="reps" placeholder="Reps" type="number" value="${repsVal}">
-      <button onclick="changeValue('reps',1)">+</button>
-    </div>
-    <div class="input-group">
-      <input id="notes" placeholder="Notes (optional)" value="${notesVal}">
-    </div>
-    <button class="full-width save" onclick="saveSet()">Save</button>
-    <div class="sets">${getSets(ex)}</div>
+      <div class="exercise">${ex}</div>
+      <div class="input-group">
+          <button onclick="changeValue('weight',-2.5)">-</button>
+          <input id="weight" placeholder="Weight (lbs)" type="number" value="${weightVal}">
+          <button onclick="changeValue('weight',2.5)">+</button>
+      </div>
+      <div class="input-group">
+          <button onclick="changeValue('reps',-1)">-</button>
+          <input id="reps" placeholder="Reps" type="number" value="${repsVal}">
+          <button onclick="changeValue('reps',1)">+</button>
+      </div>
+      <div class="input-group">
+          <input id="notes" placeholder="Notes (optional)" value="${notesVal}">
+      </div>
+      <button class="full-width save" onclick="saveSet()">Save</button>
+      <div class="sets">${getSets(ex)}</div>
   </div>`;
 }
 
-// -------------------- Save & Delete Sets --------------------
+// --- Save & Delete sets ---
 async function saveSet() {
   const ex = workouts[currentWorkout][currentIndex];
   const weight = document.getElementById("weight").value;
@@ -136,20 +165,17 @@ async function saveSet() {
   const notes = document.getElementById("notes")?.value || "";
   if (!weight || !reps) { alert("Please enter weight and reps"); return; }
 
-  const exID = exerciseNameToID[ex];
-
   try {
     const docRef = await db.collection('workouts').add({
       date: currentDate,
       workout: currentWorkout,
-      exerciseID: exID,
+      exerciseID: exerciseNameToID[ex],
       exercise: ex,
       weight,
       reps,
       notes
     });
 
-    // update local cache immediately
     if (!logCache[currentDate]) logCache[currentDate] = {};
     if (!logCache[currentDate][currentWorkout]) logCache[currentDate][currentWorkout] = [];
     logCache[currentDate][currentWorkout].push({
@@ -160,24 +186,25 @@ async function saveSet() {
       notes
     });
 
-    startTimer(); loadExercise(); generateCalendar();
+    startTimer();
+    loadExercise();
+    generateCalendar();
 
-  } catch(e) {
-    console.error("Error saving set", e);
-    alert("Failed to save set. Check internet connection.");
+  } catch (e) {
+    console.error(e);
+    alert("Failed to save set. Check your internet connection.");
   }
 }
 
-async function deleteSet(docID) {
+async function deleteSet(setID) {
   if (!confirm("Delete this set?")) return;
 
   try {
-    await db.collection('workouts').doc(docID).delete();
+    await db.collection('workouts').doc(setID).delete();
 
-    // update local cache
     for (let date in logCache) {
       for (let workout in logCache[date]) {
-        logCache[date][workout] = logCache[date][workout].filter(s => s.id !== docID);
+        logCache[date][workout] = logCache[date][workout].filter(s => s.id !== setID);
       }
     }
 
@@ -189,59 +216,19 @@ async function deleteSet(docID) {
   }
 }
 
-// -------------------- Load Data --------------------
-async function loadData() {
-  try {
-    // Load exercises & workouts structure (could be hardcoded or fetched from Firestore)
-    const exercisesSnap = await db.collection('exercises').get();
-    exercisesMap = {};
-    exerciseNameToID = {};
-    exercisesSnap.forEach(doc => {
-      const d = doc.data();
-      exercisesMap[d.id] = d.name;
-      exerciseNameToID[d.name] = d.id;
-    });
-
-    const workoutsSnap = await db.collection('workouts').get();
-    logCache = {};
-    workoutsSnap.forEach(doc => {
-      const set = doc.data();
-      if (!logCache[set.date]) logCache[set.date] = {};
-      if (!logCache[set.date][set.workout]) logCache[set.date][set.workout] = [];
-      logCache[set.date][set.workout].push({
-        id: doc.id,
-        exercise: set.exercise,
-        weight: set.weight,
-        reps: set.reps,
-        notes: set.notes
-      });
-    });
-
-    // Build workouts array (optional: could hardcode A/B)
-    workouts.A = Object.values(exercisesMap); // temporary example
-    workouts.B = Object.values(exercisesMap); // could be different
-
-    loadExercise();
-    generateCalendar();
-  } catch(e) {
-    console.error(e);
-    alert("Failed to load data");
-  }
-}
-
-// -------------------- Navigation --------------------
+// --- Navigation ---
 function nextExercise() {
   navigationDirection = "next";
   if (currentIndex < workouts[currentWorkout].length - 1) {
-    currentIndex++; 
-    loadExercise();
+    currentIndex++;
   } else {
-    alert("Workout Complete! 🎉"); 
-    currentIndex = 0; 
-    loadExercise();
+    alert("Workout Complete! 🎉");
+    currentIndex = 0;
   }
+  loadExercise();
 }
 
+// --- Tabs ---
 function updateTabs(type) {
   document.querySelectorAll('.tabs button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.workout === type);
@@ -249,14 +236,14 @@ function updateTabs(type) {
 }
 
 function loadWorkout(type) {
-  currentWorkout = type; 
-  currentIndex = 0; 
-  updateTabs(type); 
-  loadExercise(); 
+  currentWorkout = type;
+  currentIndex = 0;
+  updateTabs(type);
+  loadExercise();
   generateCalendar();
 }
 
-// -------------------- Swipe --------------------
+// --- Swipe ---
 let touchStartX = 0;
 const cardContainer = document.getElementById("exerciseCard");
 if (cardContainer) {
@@ -265,13 +252,13 @@ if (cardContainer) {
     const delta = e.changedTouches[0].clientX - touchStartX;
     if (Math.abs(delta) > 50) {
       navigationDirection = delta < 0 ? "next" : "prev";
-      delta < 0 ? nextExercise() : currentIndex > 0 && currentIndex--;
-      loadExercise();
+      delta < 0 ? nextExercise() : (currentIndex > 0 && currentIndex--, loadExercise());
     }
   });
 }
 
-// -------------------- Initial Load --------------------
-loadData();
+// --- Initial Load ---
+loadExercisesAndSets();
 updateTabs(currentWorkout);
 updateTimerDisplay();
+generateCalendar();
