@@ -1,17 +1,5 @@
 // --- Firebase Setup ---
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCM45pVfshkhb4_oG8VX08S2blYQlA8nSA",
-  authDomain: "workout-tracker-3bf5e.firebaseapp.com",
-  projectId: "workout-tracker-3bf5e",
-  storageBucket: "workout-tracker-3bf5e.firebasestorage.app",
-  messagingSenderId: "1051835495537",
-  appId: "1:1051835495537:web:d825f0a61ccce60f4bd7d0",
-  measurementId: "G-7MK068BRL8"
-};
-
-
-firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // --- Variables ---
