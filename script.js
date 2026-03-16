@@ -76,8 +76,9 @@ async function loadExercisesAndSets() {
 
     snap.forEach(doc => {
       const data = doc.data();
-      exercisesMap[data.id] = data.name;
-      exerciseNameToID[data.name] = data.id;
+      const id = doc.id;
+      exercisesMap[id] = data.name;
+      exerciseNameToID[data.name] = id;
 
       if (data.workout === "A") workouts.A.push(data.name);
       else if (data.workout === "B") workouts.B.push(data.name);
