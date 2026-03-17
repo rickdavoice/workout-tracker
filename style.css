@@ -22,9 +22,9 @@ h1 {
   gap: 12px;
   padding-bottom: 12px;
   margin-bottom: 18px;
-}
-.day {
-  flex: 0 0 auto;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
   width: 60px;
   text-align: center;
   padding: 12px 0;
@@ -149,18 +149,70 @@ button {
   border-radius: 10px;
   box-shadow: 0 2px 8px #0002;
 }
-.sets {
-  width: 100%;
-  margin-top: 18px;
-}
-.sets div {
+/* FitNotes-style sets table */
+/* FitNotes-style sets list */
+/* Improved FitNotes-style sets card */
   display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-top: 1px solid #333;
-  font-size: 15px;
+  flex-direction: column;
+  background: #23272a;
+  border-radius: 18px;
+  margin-bottom: 10px;
+  box-shadow: 0 6px 24px #0004;
+  padding: 18px 22px 14px 22px;
+  border: 1px solid #23272a;
+  position: relative;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+  display: flex;
+  justify-content: flex-start;
   align-items: center;
-  color: #f5f6fa;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 2px;
+    justify-content: space-between;
+    /* gap removed */
+}
+.sets-list-weight, .sets-list-reps {
+  display: flex;
+  align-items: baseline;
+}
+.sets-list-unit {
+  font-size: 15px;
+  color: #aaa;
+  margin-left: 4px;
+}
+.sets-list-del {
+  cursor: pointer;
+  font-size: 22px;
+  color: #e74c3c;
+  margin-left: 16px;
+  transition: color 0.2s;
+}
+.sets-list-del:hover {
+  color: #c0392b;
+}
+.sets-list-note-row {
+  margin-top: 6px;
+  font-size: 15px;
+  color: #6c3483;
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 6px 10px;
+  width: fit-content;
+}
+.sets-list-note {
+  cursor: pointer;
+  font-size: 16px;
+  color: #6c3483;
+}
+.sets-list-empty {
+  text-align: center;
+  color: #888;
+  padding: 16px 0;
+  font-size: 15px;
 }
 .timer {
   text-align: center;

@@ -243,16 +243,20 @@ function loadExercise(){
 // --- Get sets ---
 function getSets(exId){
   const sets = logCache[currentDate]?.[currentWorkoutId] || [];
-  const filtered = sets.filter(s=>s.exerciseID===exId).slice(-5);
+  // Order sets by reps ascending (lowest reps at top, highest at bottom)
+  const filtered = sets.filter(s=>s.exerciseID===exId)
+    .sort((a,b)=>parseInt(a.reps)-parseInt(b.reps))
+    .slice(-5); // show last 5 sets
+
+  if(filtered.length === 0) return `<div class="sets-list-empty">No sets yet</div>`;
   return filtered.map((s,i)=>{
-    const noteIcon = s.notes ? `<span style="cursor:pointer" onclick="alert('Note: ${s.notes.replace(/'/g,"\\'")}')">📝</span>` : `<span style="width:24px;display:inline-block"></span>`;
-    const deleteIcon = `<span style="cursor:pointer;color:red;" onclick="deleteSet('${s.id}')">❌</span>`;
-    return `<div style="display:flex;gap:10px;align-items:center">
-      <span style="flex:1">${i+1}</span>
-      <span style="flex:2">${s.weight}</span>
-      <span style="flex:2">${s.reps}</span>
-      <span style="flex:0">${noteIcon}</span>
-      <span style="flex:0">${deleteIcon}</span>
+    return `<div class="sets-list-item">
+      <div class="sets-list-main">
+        <span class="sets-list-weight">${s.weight} <span class="sets-list-unit">lbs</span></span>
+        <span class="sets-list-reps">${s.reps} <span class="sets-list-unit">reps</span></span>
+        <span class="sets-list-del" onclick="deleteSet('${s.id}')">❌</span>
+      </div>
+      ${s.notes ? `<div class="sets-list-note-row"><span class="sets-list-note" title="${s.notes}" onclick="alert('Note: ${s.notes.replace(/'/g,"\\'")}')">📝 ${s.notes}</span></div>` : ""}
     </div>`;
   }).join("");
 }
