@@ -1,19 +1,20 @@
 // --- Firebase App (already initialized in HTML) ---
 const db = firebase.firestore();
 
+// global
+let timerSound = new Audio("https://www.soundjay.com/button/beep-10.mp3");
+timerSound.loop = true; // optional if you want it repeating
+timerSound.volume = 1.0;
 // --- Variables ---
 let editingSetId = null;
+let lastLoadedDate = null;
 let currentWorkoutId = null;
-// --- Input state ---
-let inputState = {
-  weight: '',
-  reps: '',
-  notes: '',
-  lastExId: null
-};
+// --- Input state & per-day memory ---
+let inputState = { weight:'', reps:'', notes:'', lastExId: null };
+let lastInputByDate = {}; // { [date]: { [exerciseId]: { weight, reps } } }
 let currentIndex = 0;
 let currentDate = getLocalISODate();
-let rest = 90;
+let rest = 5;
 let interval;
 let workouts = {};          // { workoutId: {name, exercises: [exerciseId,...]} }
 let exercises = {};         // { exerciseId: exerciseName }
@@ -29,23 +30,25 @@ function getLocalISODate(d = new Date()){
 function updateTimerDisplay(){ document.getElementById("timer").innerText = rest; }
 function startTimer(){
   clearInterval(interval);
-  rest = 90; updateTimerDisplay();
+  rest = 5;
+  updateTimerDisplay();
+
   interval = setInterval(()=>{
     rest--;
     updateTimerDisplay();
-    if(rest<=0){
+    if(rest <= 0){
       clearInterval(interval);
-      // Play sound
-      setTimeout(() => {
-        let audio = new Audio("https://www.soundjay.com/button/beep-07.wav");
-        audio.play().catch(()=>{
-          // fallback: try another sound
-          let fallback = new Audio("https://www.soundjay.com/button/beep-09.wav");
-          fallback.play();
-        });
-      }, 100);
+
+      // ✅ Play the sound immediately
+      timerSound.play().catch(()=>console.log("Tap required to play sound"));
+
+      // optional vibrate
+      if(navigator.vibrate) navigator.vibrate([500,200,500]);
+
+      // stop alarm automatically after 20 seconds
+      setTimeout(()=>timerSound.pause(), 20000);
     }
-  },1000);
+  }, 1000);
 }
 
 // --- Input adjustments ---
@@ -142,11 +145,28 @@ function loadExercise(){
   const setsHTML = getSets(exId);
 
   // Reset inputs if switching exercises (unless editing)
-  if (inputState.lastExId !== exId && editingSetId === null) {
-    inputState = { weight: '', reps: '', notes: '', lastExId: exId };
-  } else {
-    inputState.lastExId = exId;
-  }
+if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !== currentDate)) {
+  const setsToday = logCache[currentDate]?.[currentWorkoutId] || [];
+
+  // Last set for this exercise **today**
+  const lastSetToday = [...setsToday].reverse().find(s => s.exerciseID === exId);
+
+  const exName = (exercises[exId] || "").toLowerCase();
+  const isPullUp = exName.includes("pull up");
+
+  // Last inputs memory for this exercise today
+  const lastInput = lastInputByDate[currentDate]?.[exId] || {};
+
+  inputState = {
+    weight: lastSetToday?.weight ?? lastInput.weight ?? (isPullUp ? "0" : ""),
+    reps: lastSetToday?.reps ?? lastInput.reps ?? "",
+    notes: "",
+    lastExId: exId
+  };
+  lastLoadedDate = currentDate;
+} else {
+  inputState.lastExId = exId;
+}
 
   const isEditing = editingSetId !== null;
 
@@ -248,9 +268,14 @@ function loadExercise(){
 function getSets(exId){
   const sets = logCache[currentDate]?.[currentWorkoutId] || [];
   // Order sets by reps ascending (lowest reps at top, highest at bottom)
-  const filtered = sets.filter(s=>s.exerciseID===exId)
-    .sort((a,b)=>parseInt(a.reps)-parseInt(b.reps))
-    .slice(-5); // show last 5 sets
+ const filtered = sets
+  .filter(s => s.exerciseID === exId)
+  .sort((a,b) => {
+    const aTime = a.createdAt?.seconds || new Date(a.createdAt).getTime();
+    const bTime = b.createdAt?.seconds || new Date(b.createdAt).getTime();
+    return aTime - bTime; // oldest → newest
+  })
+  .slice(-5);
 
   if(filtered.length === 0) return `<div class="sets-list-empty">No sets yet</div>`;
   return filtered.map((s,i)=>{
@@ -343,20 +368,32 @@ async function saveSet(){
       date: currentDate,
       workoutID: currentWorkoutId,
       exerciseID: exId,
-      weight, reps, notes
+      weight, reps, notes, createdAt: new Date()
     });
 
     if(!logCache[currentDate]) logCache[currentDate]={};
     if(!logCache[currentDate][currentWorkoutId]) logCache[currentDate][currentWorkoutId]=[];
 
     logCache[currentDate][currentWorkoutId].push({
-      id: docRef.id, exerciseID: exId, weight, reps, notes
+      id: docRef.id, exerciseID: exId, weight, reps, notes, createdAt: new Date()
     });
+    // Remember the last input for this exercise today
+if (!lastInputByDate[currentDate]) lastInputByDate[currentDate] = {};
+lastInputByDate[currentDate][exId] = {
+  weight,
+  reps
+};
 
     startTimer();
 
-    // ✅ Reset after saving
-    inputState = { weight: '', reps: '', notes: '', lastExId: exId };
+
+
+    inputState = {
+  weight,
+  reps,
+  notes: '', // clear notes only
+  lastExId: exId
+};
 
     loadExercise();
 
@@ -450,15 +487,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderFullCalendar() {
     // ...existing code...
     // Add click listeners
-    fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
-      dayEl.onclick = () => {
-        currentDate = dayEl.dataset.iso;
-        calendarModal.style.display = 'none';
-        loadExercise();
-        // generateCalendar();
-        updateTodayDate();
-      };
-    });
+   fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
+  dayEl.onclick = () => {
+    currentDate = dayEl.dataset.iso;
+
+    // ✅ Force input reset for new day
+    inputState.lastExId = null;
+
+    calendarModal.style.display = 'none';
+    loadExercise();
+    updateTodayDate();
+  };
+});
   }
 });
 
