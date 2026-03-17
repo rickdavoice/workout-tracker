@@ -1,10 +1,14 @@
 // --- Firebase App (already initialized in HTML) ---
 const db = firebase.firestore();
-
-// global
+// global audio object
 let timerSound = new Audio("https://www.soundjay.com/button/beep-10.mp3");
-timerSound.loop = true; // optional if you want it repeating
 timerSound.volume = 1.0;
+timerSound.loop = true; // optional if you want repeating beep
+
+// unlock audio on first user tap
+document.addEventListener("click", () => {
+  timerSound.play().then(()=>timerSound.pause()).catch(()=>{});
+}, { once: true });
 // --- Variables ---
 let editingSetId = null;
 let lastLoadedDate = null;
@@ -36,16 +40,17 @@ function startTimer(){
   interval = setInterval(()=>{
     rest--;
     updateTimerDisplay();
+
     if(rest <= 0){
       clearInterval(interval);
 
-      // ✅ Play the sound immediately
-      timerSound.play().catch(()=>console.log("Tap required to play sound"));
+      // ✅ Play beep
+      timerSound.play().catch(()=>console.log("Audio blocked — tap page to allow"));
 
-      // optional vibrate
+      // optional: vibrate phone
       if(navigator.vibrate) navigator.vibrate([500,200,500]);
 
-      // stop alarm automatically after 20 seconds
+      // stop beep after 20 seconds automatically
       setTimeout(()=>timerSound.pause(), 20000);
     }
   }, 1000);

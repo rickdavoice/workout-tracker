@@ -89,12 +89,12 @@
 .sets-pill-weight {
   min-width: 75px;
   text-align: left;
-  margin-left: 10%;
+  margin-left: 15%;
 }
 .sets-pill-reps {
   min-width: 75px;
   text-align: left;
-  margin-left: 0;
+  margin-left: 10%;
 }
 .sets-pill-unit {
   font-size: 16px;
