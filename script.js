@@ -3,6 +3,13 @@ const db = firebase.firestore();
 
 // --- Variables ---
 let currentWorkoutId = null;
+// --- Input state ---
+let inputState = {
+  weight: '',
+  reps: '',
+  notes: '',
+  lastExId: null
+};
 let currentIndex = 0;
 let currentDate = getLocalISODate();
 let rest = 90;
@@ -25,7 +32,18 @@ function startTimer(){
   interval = setInterval(()=>{
     rest--;
     updateTimerDisplay();
-    if(rest<=0){ clearInterval(interval); alert("Rest done 💪"); }
+    if(rest<=0){
+      clearInterval(interval);
+      // Play sound
+      setTimeout(() => {
+        let audio = new Audio("https://www.soundjay.com/button/beep-07.wav");
+        audio.play().catch(()=>{
+          // fallback: try another sound
+          let fallback = new Audio("https://www.soundjay.com/button/beep-09.wav");
+          fallback.play();
+        });
+      }, 100);
+    }
   },1000);
 }
 
@@ -133,10 +151,18 @@ function loadExercise(){
   const exId = workouts[currentWorkoutId].exercises[currentIndex];
   if(!exId){
     container.innerHTML = "<p>No exercises for this workout.</p>";
+    inputState = { weight: '', reps: '', notes: '', lastExId: null };
     return;
   }
   const exName = exercises[exId] || "Exercise";
   const setsHTML = getSets(exId);
+
+  // If exercise changed, clear inputState
+  if (inputState.lastExId !== exId) {
+    inputState = { weight: '', reps: '', notes: '', lastExId: exId };
+  } else {
+    inputState.lastExId = exId;
+  }
 
   // --- Swipe animation ---
   // Card swipe animation logic
@@ -197,16 +223,16 @@ function loadExercise(){
       <div class="exercise">${exName}</div>
       <div class="input-group">
         <button onclick="changeValue('weight',-2.5)">-</button>
-        <input id="weight" placeholder="Weight (lbs)" type="number">
+        <input id="weight" placeholder="Weight (lbs)" type="number" value="${inputState.weight}">
         <button onclick="changeValue('weight',2.5)">+</button>
       </div>
       <div class="input-group">
         <button onclick="changeValue('reps',-1)">-</button>
-        <input id="reps" placeholder="Reps" type="number">
+        <input id="reps" placeholder="Reps" type="number" value="${inputState.reps}">
         <button onclick="changeValue('reps',1)">+</button>
       </div>
       <div class="input-group">
-        <input id="notes" placeholder="Notes (optional)">
+        <input id="notes" placeholder="Notes (optional)" value="${inputState.notes}">
       </div>
       <button class="full-width save" onclick="saveSet()">Save</button>
       <div class="sets">${setsHTML}</div>
@@ -238,6 +264,7 @@ async function saveSet(){
   const weight = document.getElementById("weight").value;
   const reps = document.getElementById("reps").value;
   const notes = document.getElementById("notes").value || "";
+  inputState = { weight, reps, notes, lastExId: workouts[currentWorkoutId].exercises[currentIndex] };
   if(!weight||!reps){ alert("Enter weight & reps"); return; }
 
   try{
