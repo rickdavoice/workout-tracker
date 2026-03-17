@@ -1,3 +1,56 @@
+.sets{
+  width:100%;
+  margin-top:10px;
+}
+
+.sets-pill {
+  display: flex;
+  flex-direction: column;
+  background: #23272a;
+  border-radius: 10px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 32px #0006;
+  padding: 18px 24px;
+  border: 1px solid #23272a;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 18px;
+  /* removed max-width and margin for true full width */
+}
+.sets-pill-main {
+  display: flex;
+  align-items: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  justify-content: flex-start;
+  gap: 32px;
+}
+.sets-pill-weight {
+  min-width: 80px;
+  text-align: left;
+  margin-left: 10%;
+}
+.sets-pill-reps {
+  min-width: 80px;
+  text-align: left;
+  margin-left: 8%;
+}
+.sets-pill-unit {
+  font-size: 16px;
+  color: #aaa;
+  margin-left: 6px;
+}
+.sets-pill-del {
+  cursor: pointer;
+  font-size: 26px;
+  color: #e74c3c;
+  margin-left: auto;
+  transition: color 0.2s;
+}
+.sets-pill-del:hover {
+  color: #c0392b;
+}
 .tabs button.active:active,
 .tabs button.active:focus,
 .tabs button.active:hover {
@@ -22,10 +75,7 @@ h1 {
   gap: 12px;
   padding-bottom: 12px;
   margin-bottom: 18px;
-}
-.day {
-  flex: 0 0 auto;
-  width: 60px;
+    /* removed width/max-width/margin/display for normal calendar */
   text-align: center;
   padding: 12px 0;
   border-radius: 14px;

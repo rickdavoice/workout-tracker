@@ -250,13 +250,12 @@ function getSets(exId){
 
   if(filtered.length === 0) return `<div class="sets-list-empty">No sets yet</div>`;
   return filtered.map((s,i)=>{
-    return `<div class="sets-list-item">
-      <div class="sets-list-main">
-        <span class="sets-list-weight">${s.weight} <span class="sets-list-unit">lbs</span></span>
-        <span class="sets-list-reps">${s.reps} <span class="sets-list-unit">reps</span></span>
-        <span class="sets-list-del" onclick="deleteSet('${s.id}')">❌</span>
+    return `<div class="sets-pill">
+      <div class="sets-pill-main">
+        <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
+        <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
+        <span class="sets-pill-del" onclick="deleteSet('${s.id}')">❌</span>
       </div>
-      ${s.notes ? `<div class="sets-list-note-row"><span class="sets-list-note" title="${s.notes}" onclick="alert('Note: ${s.notes.replace(/'/g,"\\'")}')">📝 ${s.notes}</span></div>` : ""}
     </div>`;
   }).join("");
 }
