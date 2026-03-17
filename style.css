@@ -103,7 +103,7 @@
 }
 .sets-pill-del {
   cursor: pointer;
-  font-size: 26px;
+  font-size: 20px;
   color: #e74c3c;
   margin-left: auto;
   transition: color 0.2s;
