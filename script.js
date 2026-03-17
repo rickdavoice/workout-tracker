@@ -2,6 +2,7 @@
 const db = firebase.firestore();
 
 // --- Variables ---
+let editingSetId = null;
 let currentWorkoutId = null;
 // --- Input state ---
 let inputState = {
@@ -127,32 +128,36 @@ function loadExercise(){
     document.getElementById("exerciseCard").innerHTML = "<p>No workout selected.</p>";
     return;
   }
+
   const container = document.getElementById("exerciseCard");
   const exId = workouts[currentWorkoutId].exercises[currentIndex];
+
   if(!exId){
     container.innerHTML = "<p>No exercises for this workout.</p>";
     inputState = { weight: '', reps: '', notes: '', lastExId: null };
     return;
   }
+
   const exName = exercises[exId] || "Exercise";
   const setsHTML = getSets(exId);
 
-  // If exercise changed, clear inputState
-  if (inputState.lastExId !== exId) {
+  // Reset inputs if switching exercises (unless editing)
+  if (inputState.lastExId !== exId && editingSetId === null) {
     inputState = { weight: '', reps: '', notes: '', lastExId: exId };
   } else {
     inputState.lastExId = exId;
   }
 
+  const isEditing = editingSetId !== null;
+
   // --- Swipe animation ---
-  // Card swipe animation logic
   function animateCardSwipe(direction) {
     const card = document.getElementById("exerciseCard");
     if (!card) return;
+
     const outOffset = direction === "right" ? -100 : 100;
     const inOffset = direction === "right" ? 100 : -100;
 
-    // Faster slide out
     card.style.transition = "transform 0.12s ease-in-out";
     card.style.transform = `translateX(${outOffset}%)`;
 
@@ -162,12 +167,15 @@ function loadExercise(){
       } else {
         currentIndex = Math.max(currentIndex - 1, 0);
       }
+
       container.innerHTML = "";
       loadExercise();
+
       const newCard = document.getElementById("exerciseCard");
       if (newCard) {
         newCard.style.transition = "none";
         newCard.style.transform = `translateX(${inOffset}%)`;
+
         setTimeout(() => {
           newCard.style.transition = "transform 0.12s ease-in-out";
           newCard.style.transform = "translateX(0)";
@@ -179,42 +187,58 @@ function loadExercise(){
   // Attach swipe listeners only once
   if (!window._swipeListenerAttached) {
     window._swipeListenerAttached = true;
+
     const cardContainer = document.getElementById("exerciseCardContainer");
     let touchStartX = 0;
+
     if (cardContainer) {
       cardContainer.addEventListener('touchstart', e => {
         touchStartX = e.changedTouches[0].clientX;
       });
+
       cardContainer.addEventListener('touchend', e => {
         const delta = e.changedTouches[0].clientX - touchStartX;
+
         if (Math.abs(delta) > 50) {
           if (delta < 0 && currentIndex < workouts[currentWorkoutId].exercises.length - 1) {
-            animateCardSwipe("right"); // swipe left, go to next
+            animateCardSwipe("right");
           } else if (delta > 0 && currentIndex > 0) {
-            animateCardSwipe("left"); // swipe right, go to prev
+            animateCardSwipe("left");
           }
         }
       });
     }
   }
 
+  // --- Render UI ---
   container.innerHTML = `
     <div class="card">
       <div class="exercise">${exName}</div>
+
       <div class="input-group">
         <button onclick="changeValue('weight',-2.5)">-</button>
         <input id="weight" placeholder="Weight (lbs)" type="number" value="${inputState.weight}">
         <button onclick="changeValue('weight',2.5)">+</button>
       </div>
+
       <div class="input-group">
         <button onclick="changeValue('reps',-1)">-</button>
         <input id="reps" placeholder="Reps" type="number" value="${inputState.reps}">
         <button onclick="changeValue('reps',1)">+</button>
       </div>
-      <div class="input-group">
-        <input id="notes" placeholder="Notes (optional)" value="${inputState.notes}">
-      </div>
-      <button class="full-width save" onclick="saveSet()">Save</button>
+
+      ${isEditing ? `
+        <div class="input-group">
+          <input id="notes" placeholder="Notes" value="${inputState.notes}">
+        </div>
+
+        <button class="full-width save" onclick="updateSet()">Update</button>
+        <button class="full-width" onclick="deleteSet(editingSetId)">Delete</button>
+        <button class="full-width" onclick="cancelEdit()">Cancel</button>
+      ` : `
+        <button class="full-width save" onclick="saveSet()">Save</button>
+      `}
+
       <div class="sets">${setsHTML}</div>
     </div>
   `;
@@ -230,25 +254,89 @@ function getSets(exId){
 
   if(filtered.length === 0) return `<div class="sets-list-empty">No sets yet</div>`;
   return filtered.map((s,i)=>{
-    return `<div class="sets-pill">
-      <div class="sets-pill-main">
-        <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
-        <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
-        <span class="sets-pill-del" onclick="deleteSet('${s.id}')">❌</span>
-      </div>
-    </div>`;
+    return `<div class="sets-pill" onclick="editSet('${s.id}')">
+  <div class="sets-pill-main">
+    <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
+    <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
+  </div>
+</div>`;
   }).join("");
+}
+
+
+// --- Edit set --- //
+
+function editSet(setId){
+  const sets = logCache[currentDate]?.[currentWorkoutId] || [];
+  const set = sets.find(s => s.id === setId);
+  if(!set) return;
+
+  editingSetId = setId;
+
+  inputState = {
+    weight: set.weight,
+    reps: set.reps,
+    notes: set.notes || "",
+    lastExId: set.exerciseID
+  };
+
+  loadExercise();
+}
+
+// --- Update set --- //
+
+async function updateSet(){
+  if(!editingSetId) return;
+
+  const weight = document.getElementById("weight").value;
+  const reps = document.getElementById("reps").value;
+  const notes = document.getElementById("notes").value || "";
+
+  if(!weight || !reps){
+    alert("Enter weight & reps");
+    return;
+  }
+
+  try{
+    await db.collection("workout-logs").doc(editingSetId).update({
+      weight, reps, notes
+    });
+
+    // Update cache
+    const sets = logCache[currentDate]?.[currentWorkoutId] || [];
+    const idx = sets.findIndex(s => s.id === editingSetId);
+    if(idx !== -1){
+      sets[idx] = {...sets[idx], weight, reps, notes};
+    }
+
+    editingSetId = null;
+    inputState = { weight: '', reps: '', notes: '', lastExId: null };
+
+    loadExercise();
+  }catch(e){
+    console.error(e);
+    alert("Update failed");
+  }
 }
 
 // --- Save set ---
 async function saveSet(){
   const exId = workouts[currentWorkoutId].exercises[currentIndex];
   if(!exId) return;
+
   const weight = document.getElementById("weight").value;
   const reps = document.getElementById("reps").value;
-  const notes = document.getElementById("notes").value || "";
-  inputState = { weight, reps, notes, lastExId: workouts[currentWorkoutId].exercises[currentIndex] };
-  if(!weight||!reps){ alert("Enter weight & reps"); return; }
+
+  // ✅ FIX: safely handle notes
+  const notesEl = document.getElementById("notes");
+  const notes = notesEl ? notesEl.value : "";
+
+  inputState = { weight, reps, notes, lastExId: exId };
+
+  if(!weight || !reps){
+    alert("Enter weight & reps");
+    return;
+  }
 
   try{
     const docRef = await db.collection("workout-logs").add({
@@ -257,28 +345,57 @@ async function saveSet(){
       exerciseID: exId,
       weight, reps, notes
     });
+
     if(!logCache[currentDate]) logCache[currentDate]={};
     if(!logCache[currentDate][currentWorkoutId]) logCache[currentDate][currentWorkoutId]=[];
-    logCache[currentDate][currentWorkoutId].push({id: docRef.id, exerciseID: exId, weight, reps, notes});
+
+    logCache[currentDate][currentWorkoutId].push({
+      id: docRef.id, exerciseID: exId, weight, reps, notes
+    });
+
     startTimer();
+
+    // ✅ Reset after saving
+    inputState = { weight: '', reps: '', notes: '', lastExId: exId };
+
     loadExercise();
-    // generateCalendar();
-  }catch(e){ console.error(e); alert("Failed to save set"); }
+
+  }catch(e){
+    console.error(e);
+    alert("Failed to save set");
+  }
 }
 
 // --- Delete set ---
 async function deleteSet(setId){
   if(!confirm("Delete this set?")) return;
+
   try{
     await db.collection("workout-logs").doc(setId).delete();
+
     for(let date in logCache){
       if(logCache[date][currentWorkoutId]){
-        logCache[date][currentWorkoutId] = logCache[date][currentWorkoutId].filter(s=>s.id!==setId);
+        logCache[date][currentWorkoutId] =
+          logCache[date][currentWorkoutId].filter(s => s.id !== setId);
       }
     }
+
+    editingSetId = null;
+    inputState = { weight: '', reps: '', notes: '', lastExId: null };
+
     loadExercise();
-    // generateCalendar();
-  }catch(e){ console.error(e); alert("Delete failed"); }
+  }catch(e){
+    console.error(e);
+    alert("Delete failed");
+  }
+}
+
+// --- Cancel edit --- //
+
+function cancelEdit(){
+  editingSetId = null;
+  inputState = { weight: '', reps: '', notes: '', lastExId: null };
+  loadExercise();
 }
 
 // --- Next exercise ---
