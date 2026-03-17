@@ -30,13 +30,23 @@ firebase.initializeApp(firebaseConfig);
 </head>
 <body>
 <h1>Workout Tracker</h1>
-<div class="calendar" id="calendar"></div>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+    <div id="todayDate" style="font-size:18px; color:#fff; font-weight:600;">March 17, 2026</div>
+    <button id="calendarBtn" style="margin-left:auto; background:#6c3483; color:#fff; border-radius:8px; padding:8px 16px; font-size:16px; border:none; cursor:pointer;">📅</button>
+</div>
 <div class="tabs"></div>
-    <div id="exerciseCardContainer">
-
-<div id="exerciseCard"></div>
-    </div>
+<div id="exerciseCardContainer">
+    <div id="exerciseCard"></div>
+</div>
 <div class="timer" id="timer">90</div>
+
+<!-- Calendar Modal -->
+<div id="calendarModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#000a; z-index:1000; justify-content:center; align-items:center;">
+    <div style="background:#23272a; border-radius:18px; padding:32px 24px; box-shadow:0 8px 32px #0006; min-width:320px; max-width:90vw;">
+        <div id="fullCalendar"></div>
+        <button id="closeCalendarModal" style="margin-top:18px; background:#6c3483; color:#fff; border-radius:8px; padding:8px 16px; font-size:16px; border:none; cursor:pointer; width:100%;">Close</button>
+    </div>
+</div>
 <script src="script.js"></script>
 </body>
 </html>

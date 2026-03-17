@@ -56,26 +56,6 @@ function changeValue(id, amount){
   el.value = newValue;
 }
 
-// --- Calendar ---
-function generateCalendar(){
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
-  const today = new Date();
-  for(let i=-7; i<7; i++){
-    const d = new Date(); d.setDate(today.getDate()+i);
-    const iso = getLocalISODate(d);
-    const dayDiv = document.createElement("div");
-    dayDiv.className="day";
-    if(iso===currentDate) dayDiv.classList.add("today");
-    const completed = logCache[iso]?.[currentWorkoutId]?.length;
-    if(completed) dayDiv.classList.add("completed");
-    dayDiv.innerHTML = `${d.toLocaleDateString('en-US',{weekday:'short'}).charAt(0)}<br>${d.getDate()}`;
-    dayDiv.onclick = ()=>{ currentDate=iso; loadExercise(); generateCalendar(); };
-    cal.appendChild(dayDiv);
-  }
-  const todayEl = document.querySelector(".day.today");
-  if(todayEl){ todayEl.scrollIntoView({behavior:"smooth", inline:"center"}); }
-}
 
 // --- Load data ---
 async function loadData(){
@@ -118,7 +98,7 @@ async function loadData(){
       currentWorkoutId = Object.keys(workouts)[0];
       loadWorkout(currentWorkoutId);
     }
-    generateCalendar();
+    // generateCalendar();
   }catch(e){ console.error(e); alert("Failed to load data"); }
 }
 
@@ -282,7 +262,7 @@ async function saveSet(){
     logCache[currentDate][currentWorkoutId].push({id: docRef.id, exerciseID: exId, weight, reps, notes});
     startTimer();
     loadExercise();
-    generateCalendar();
+    // generateCalendar();
   }catch(e){ console.error(e); alert("Failed to save set"); }
 }
 
@@ -297,7 +277,7 @@ async function deleteSet(setId){
       }
     }
     loadExercise();
-    generateCalendar();
+    // generateCalendar();
   }catch(e){ console.error(e); alert("Delete failed"); }
 }
 
@@ -320,12 +300,107 @@ function loadWorkout(workoutId){
   currentIndex = 0;
   updateTabs(workoutId);
   loadExercise();
-  generateCalendar();
+  // generateCalendar();
 }
 
 // ...existing code...
 
 // --- Initial load ---
+
+function updateTodayDate() {
+  const todayDateEl = document.getElementById('todayDate');
+  if (!todayDateEl) return;
+
+  const [year, month, day] = currentDate.split('-').map(Number);
+  const d = new Date(year, month - 1, day); // LOCAL date (fixes timezone bug)
+
+  const formatted = d.toLocaleString('default', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  todayDateEl.textContent = formatted;
+}
+
 loadData();
 updateTimerDisplay();
-generateCalendar();
+updateTodayDate();
+
+// Update date display when calendar changes
+document.addEventListener('DOMContentLoaded', () => {
+  // ...existing code...
+  function renderFullCalendar() {
+    // ...existing code...
+    // Add click listeners
+    fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
+      dayEl.onclick = () => {
+        currentDate = dayEl.dataset.iso;
+        calendarModal.style.display = 'none';
+        loadExercise();
+        // generateCalendar();
+        updateTodayDate();
+      };
+    });
+  }
+});
+
+// --- Calendar Modal Logic ---
+document.addEventListener('DOMContentLoaded', () => {
+  const calendarBtn = document.getElementById('calendarBtn');
+  const calendarModal = document.getElementById('calendarModal');
+  const closeCalendarModal = document.getElementById('closeCalendarModal');
+  const fullCalendar = document.getElementById('fullCalendar');
+
+  if (calendarBtn && calendarModal && closeCalendarModal && fullCalendar) {
+    calendarBtn.onclick = () => {
+      calendarModal.style.display = 'flex';
+      renderFullCalendar();
+    };
+    closeCalendarModal.onclick = () => {
+      calendarModal.style.display = 'none';
+    };
+  }
+
+  function renderFullCalendar() {
+    // Get current month/year
+    const today = new Date();
+    const month = today.getMonth();
+    const year = today.getFullYear();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startWeekday = firstDay.getDay();
+
+    // Header
+    let html = `<div class='full-calendar-header'>${today.toLocaleString('default', { month: 'long' })} ${year}</div>`;
+    html += `<div class='full-calendar-grid'>`;
+    // Weekday headers
+    const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    weekdays.forEach(d => {
+      html += `<div class='full-calendar-day' style='font-weight:bold; background:#181a1b;'>${d}</div>`;
+    });
+    // Empty days before first
+    for (let i = 0; i < startWeekday; i++) {
+      html += `<div></div>`;
+    }
+    // Days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const iso = getLocalISODate(new Date(year, month, day));
+      const selected = iso === currentDate ? 'selected' : '';
+      html += `<div class='full-calendar-day ${selected}' data-iso='${iso}'>${day}</div>`;
+    }
+    html += `</div>`;
+    fullCalendar.innerHTML = html;
+
+    // Add click listeners
+    fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
+      dayEl.onclick = () => {
+  currentDate = dayEl.dataset.iso;
+  calendarModal.style.display = 'none';
+  loadExercise();
+  updateTodayDate(); // <-- ADD THIS
+};
+    });
+  }
+});
