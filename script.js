@@ -139,48 +139,58 @@ function loadExercise(){
   const setsHTML = getSets(exId);
 
   // --- Swipe animation ---
-function animateCard(direction) {
+  // Card swipe animation logic
+  function animateCardSwipe(direction) {
     const card = document.getElementById("exerciseCard");
     if (!card) return;
+    const outOffset = direction === "right" ? -100 : 100;
+    const inOffset = direction === "right" ? 100 : -100;
 
-    const offset = direction === "next" ? 100 : -100;
-    // Slide out
-    card.style.transform = `translateX(${offset}%)`;
-    
+    // Faster slide out
+    card.style.transition = "transform 0.12s ease-in-out";
+    card.style.transform = `translateX(${outOffset}%)`;
+
     setTimeout(() => {
-        // Load new exercise content
-        loadExercise();
-
-        // Slide in from opposite side
-        card.style.transform = `translateX(${-offset}%)`;
-
-        // Return to center
+      if (direction === "right") {
+        currentIndex = Math.min(currentIndex + 1, workouts[currentWorkoutId].exercises.length - 1);
+      } else {
+        currentIndex = Math.max(currentIndex - 1, 0);
+      }
+      container.innerHTML = "";
+      loadExercise();
+      const newCard = document.getElementById("exerciseCard");
+      if (newCard) {
+        newCard.style.transition = "none";
+        newCard.style.transform = `translateX(${inOffset}%)`;
         setTimeout(() => {
-            card.style.transform = `translateX(0)`;
+          newCard.style.transition = "transform 0.12s ease-in-out";
+          newCard.style.transform = "translateX(0)";
         }, 20);
-    }, 200); // match half of transition
-}
-  
- let touchStartX = 0;
-const cardContainer = document.getElementById("exerciseCardContainer");
+      }
+    }, 120);
+  }
 
-if (cardContainer) {
-    cardContainer.addEventListener('touchstart', e => {
+  // Attach swipe listeners only once
+  if (!window._swipeListenerAttached) {
+    window._swipeListenerAttached = true;
+    const cardContainer = document.getElementById("exerciseCardContainer");
+    let touchStartX = 0;
+    if (cardContainer) {
+      cardContainer.addEventListener('touchstart', e => {
         touchStartX = e.changedTouches[0].clientX;
-    });
-    cardContainer.addEventListener('touchend', e => {
+      });
+      cardContainer.addEventListener('touchend', e => {
         const delta = e.changedTouches[0].clientX - touchStartX;
         if (Math.abs(delta) > 50) {
-            if (delta < 0) {
-                animateCard("next");
-                currentIndex = Math.min(currentIndex + 1, workouts[currentWorkoutId].exercises.length - 1);
-            } else {
-                animateCard("prev");
-                currentIndex = Math.max(currentIndex - 1, 0);
-            }
+          if (delta < 0 && currentIndex < workouts[currentWorkoutId].exercises.length - 1) {
+            animateCardSwipe("right"); // swipe left, go to next
+          } else if (delta > 0 && currentIndex > 0) {
+            animateCardSwipe("left"); // swipe right, go to prev
+          }
         }
-    });
-}
+      });
+    }
+  }
 
   container.innerHTML = `
     <div class="card">
@@ -283,19 +293,7 @@ function loadWorkout(workoutId){
   generateCalendar();
 }
 
-// --- Swipe gesture ---
-let touchStartX=0;
-const cardContainer = document.getElementById("exerciseCard");
-if(cardContainer){
-  cardContainer.addEventListener('touchstart', e=>{ touchStartX = e.changedTouches[0].clientX; });
-  cardContainer.addEventListener('touchend', e=>{
-    const delta = e.changedTouches[0].clientX - touchStartX;
-    if(Math.abs(delta)>50){
-      if(delta<0) nextExercise(); 
-      else if(currentIndex>0){ currentIndex--; loadExercise(); }
-    }
-  });
-}
+// ...existing code...
 
 // --- Initial load ---
 loadData();
