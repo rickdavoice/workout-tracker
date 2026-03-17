@@ -325,10 +325,10 @@ button {
 .timer {
   text-align: center;
   font-size: 36px;
-  margin-top: 18px;
-  padding: 18px;
-  width: 90px;
-  height: 90px;
+  margin-top: 10px;
+  padding: 10px;
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
