@@ -42,7 +42,7 @@
 }
 .full-calendar-header {
   font-weight: bold;
-  color: #6c3483;
+  color: #fff;
   font-size: 17px;
   text-align: center;
   margin-bottom: 8px;
@@ -57,6 +57,43 @@
   cursor: pointer;
   width: 100%;
   margin-top: 18px;
+}
+.menu-item {
+  padding: 14px 16px;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:hover {
+  background: #6c3483;
+}
+
+.modal-close {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #2e2e2e;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px #0006;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: #6c3483;
 }
 .sets{
   width:100%;

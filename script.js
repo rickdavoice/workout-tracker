@@ -102,13 +102,20 @@ async function loadData(){
       logCache[date][workoutId].push({...set, id: doc.id});
     });
 
-    setupTabs();
+ 
     if(Object.keys(workouts).length>0){
       currentWorkoutId = Object.keys(workouts)[0];
       loadWorkout(currentWorkoutId);
     }
+    updateTodayWorkoutName();
     // generateCalendar();
   }catch(e){ console.error(e); alert("Failed to load data"); }
+}
+
+function updateTodayWorkoutName() {
+  const el = document.getElementById('todayWorkout');
+  if (!el || !currentWorkoutId) return;
+  el.textContent = workouts[currentWorkoutId]?.name || '';
 }
 
 // --- Setup workout buttons dynamically ---
@@ -486,46 +493,84 @@ loadData();
 updateTimerDisplay();
 updateTodayDate();
 
-// Update date display when calendar changes
-document.addEventListener('DOMContentLoaded', () => {
-  // ...existing code...
-  function renderFullCalendar() {
-    // ...existing code...
-    // Add click listeners
-   fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
-  dayEl.onclick = () => {
-    currentDate = dayEl.dataset.iso;
-
-    // ✅ Force input reset for new day
-    inputState.lastExId = null;
-
-    calendarModal.style.display = 'none';
-    loadExercise();
-    updateTodayDate();
-  };
-});
-  }
-});
-
-// --- Calendar Modal Logic ---
 document.addEventListener('DOMContentLoaded', () => {
   const calendarBtn = document.getElementById('calendarBtn');
   const calendarModal = document.getElementById('calendarModal');
   const closeCalendarModal = document.getElementById('closeCalendarModal');
   const fullCalendar = document.getElementById('fullCalendar');
+  const menuDropdown = document.getElementById('menuDropdown');
+  const openCalendar = document.getElementById('openCalendar');
+  const openWorkouts = document.getElementById('openWorkouts');
+const workoutModal = document.getElementById('workoutModal');
+const closeWorkoutModal = document.getElementById('closeWorkoutModal');
+const workoutList = document.getElementById('workoutList');
 
-  if (calendarBtn && calendarModal && closeCalendarModal && fullCalendar) {
-    calendarBtn.onclick = () => {
-      calendarModal.style.display = 'flex';
-      renderFullCalendar();
-    };
-    closeCalendarModal.onclick = () => {
-      calendarModal.style.display = 'none';
-    };
-  }
+  if (!calendarBtn || !calendarModal || !closeCalendarModal || !fullCalendar) return;
 
+  // 🔽 Toggle menu
+  calendarBtn.onclick = (e) => {
+    e.stopPropagation();
+    menuDropdown.style.display =
+      menuDropdown.style.display === 'block' ? 'none' : 'block';
+  };
+
+  // 📅 Open calendar from menu
+  openCalendar.onclick = () => {
+    menuDropdown.style.display = 'none';
+    calendarModal.style.display = 'flex';
+    renderFullCalendar();
+  };
+
+  // ❌ Close calendar modal
+  closeCalendarModal.onclick = () => {
+    calendarModal.style.display = 'none';
+  };
+
+  openWorkouts.onclick = () => {
+  menuDropdown.style.display = 'none';
+  calendarBtn.classList.remove('open');
+
+  workoutModal.style.display = 'flex';
+  renderWorkoutList();
+};
+
+closeWorkoutModal.onclick = () => {
+  workoutModal.style.display = 'none';
+};
+
+function renderWorkoutList() {
+  if (!workoutList) return;
+
+  workoutList.innerHTML = "";
+
+  Object.keys(workouts).forEach((id, idx) => {
+    const btn = document.createElement("button");
+
+    btn.textContent = workouts[id].name || `Workout ${String.fromCharCode(65+idx)}`;
+    btn.className = "full-width";
+    btn.style.marginBottom = "10px";
+
+    btn.onclick = () => {
+      currentWorkoutId = id;
+      currentIndex = 0;
+
+      workoutModal.style.display = 'none';
+
+      loadExercise();
+      updateTodayWorkoutName();
+    };
+
+    workoutList.appendChild(btn);
+  });
+}
+
+  // 👇 Close menu if clicking outside
+  document.addEventListener('click', () => {
+    menuDropdown.style.display = 'none';
+  });
+
+  // ✅ FULL calendar function (real one)
   function renderFullCalendar() {
-    // Get current month/year
     const today = new Date();
     const month = today.getMonth();
     const year = today.getFullYear();
@@ -534,35 +579,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const daysInMonth = lastDay.getDate();
     const startWeekday = firstDay.getDay();
 
-    // Header
     let html = `<div class='full-calendar-header'>${today.toLocaleString('default', { month: 'long' })} ${year}</div>`;
     html += `<div class='full-calendar-grid'>`;
-    // Weekday headers
+
     const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     weekdays.forEach(d => {
       html += `<div class='full-calendar-day' style='font-weight:bold; background:#181a1b;'>${d}</div>`;
     });
-    // Empty days before first
+
     for (let i = 0; i < startWeekday; i++) {
       html += `<div></div>`;
     }
-    // Days
+
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = getLocalISODate(new Date(year, month, day));
       const selected = iso === currentDate ? 'selected' : '';
       html += `<div class='full-calendar-day ${selected}' data-iso='${iso}'>${day}</div>`;
     }
+
     html += `</div>`;
     fullCalendar.innerHTML = html;
 
-    // Add click listeners
     fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
       dayEl.onclick = () => {
-  currentDate = dayEl.dataset.iso;
-  calendarModal.style.display = 'none';
-  loadExercise();
-  updateTodayDate(); // <-- ADD THIS
-};
+        currentDate = dayEl.dataset.iso;
+
+        inputState.lastExId = null;
+
+        calendarModal.style.display = 'none';
+        loadExercise();
+        updateTodayDate();
+      };
     });
   }
 });
