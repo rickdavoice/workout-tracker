@@ -18,7 +18,7 @@ let inputState = { weight:'', reps:'', notes:'', lastExId: null };
 let lastInputByDate = {}; // { [date]: { [exerciseId]: { weight, reps } } }
 let currentIndex = 0;
 let currentDate = getLocalISODate();
-let rest = 5;
+let rest = 75;
 let interval;
 let workouts = {};          // { workoutId: {name, exercises: [exerciseId,...]} }
 let exercises = {};         // { exerciseId: exerciseName }
@@ -34,7 +34,7 @@ function getLocalISODate(d = new Date()){
 function updateTimerDisplay(){ document.getElementById("timer").innerText = rest; }
 function startTimer(){
   clearInterval(interval);
-  rest = 5;
+  rest = 75;
   updateTimerDisplay();
 
   interval = setInterval(()=>{
@@ -67,55 +67,90 @@ function changeValue(id, amount){
 
 
 // --- Load data ---
-async function loadData(){
-  try{
+async function loadData() {
+  try {
     // --- Exercises ---
-    const exSnap = await db.collection("exercises").get();
-    exercises = {};
-    exSnap.forEach(doc=>{ exercises[doc.id] = doc.data().name; });
+    try {
+      const exSnap = await db.collection("exercises").get();
+      exercises = {};
+      exSnap.forEach(doc => {
+        exercises[doc.id] = doc.data().name;
+      });
+    } catch (e) {
+      console.error("Failed to load exercises:", e);
+      exercises = {};
+    }
 
     // --- Workouts ---
-    const workoutSnap = await db.collection("workouts").get();
-    workouts = {};
-    workoutSnap.forEach(doc=>{
-      workouts[doc.id] = { name: doc.data().name, exercises: [] };
-    });
+    try {
+      const workoutSnap = await db.collection("workouts").get();
+      workouts = {};
+      workoutSnap.forEach(doc => {
+        workouts[doc.id] = { name: doc.data().name, exercises: [] };
+      });
+    } catch (e) {
+      console.error("Failed to load workouts:", e);
+      workouts = {};
+    }
 
     // --- Workout-Exercises mapping ---
-    const wxSnap = await db.collection("workout-exercises").orderBy("order").get();
-    wxSnap.forEach(doc=>{
-      const data = doc.data();
-      if(workouts[data.workoutID]){
-        workouts[data.workoutID].exercises.push(data.exerciseID);
-      }
-    });
+    try {
+      const wxSnap = await db.collection("workout-exercises").orderBy("order").get();
+      wxSnap.forEach(doc => {
+        const data = doc.data();
+        if (workouts[data.workoutID]) {
+          workouts[data.workoutID].exercises.push(data.exerciseID);
+        }
+      });
+    } catch (e) {
+      console.error("Failed to load workout-exercises mapping:", e);
+    }
 
     // --- Workout logs ---
-    const logSnap = await db.collection("workout-logs").get();
-    logCache = {};
-    logSnap.forEach(doc=>{
-      const set = doc.data();
-      const date = set.date;
-      const workoutId = set.workoutID;
-      if(!logCache[date]) logCache[date]={};
-      if(!logCache[date][workoutId]) logCache[date][workoutId]=[];
-      logCache[date][workoutId].push({...set, id: doc.id});
-    });
-
- 
-    if(Object.keys(workouts).length>0){
-      currentWorkoutId = Object.keys(workouts)[0];
-      loadWorkout(currentWorkoutId);
+    try {
+      const logSnap = await db.collection("workout-logs").get();
+      logCache = {};
+      logSnap.forEach(doc => {
+        const set = doc.data();
+        const date = set.date;
+        const workoutId = set.workoutID;
+        if (!logCache[date]) logCache[date] = {};
+        if (!logCache[date][workoutId]) logCache[date][workoutId] = [];
+        logCache[date][workoutId].push({ ...set, id: doc.id });
+      });
+    } catch (e) {
+      console.error("Failed to load workout logs:", e);
+      logCache = {};
     }
-    updateTodayWorkoutName();
-    // generateCalendar();
-  }catch(e){ console.error(e); alert("Failed to load data"); }
+
+    // --- Check today ---
+    const todayLogs = logCache[currentDate] || {};
+    const existingWorkoutIds = Object.keys(todayLogs);
+
+    if (existingWorkoutIds.length > 0) {
+      currentWorkoutId = existingWorkoutIds[0];
+      loadWorkout(currentWorkoutId);
+    } else {
+      document.getElementById('exerciseCard').innerHTML = `<p>Select a workout for today</p>`;
+      workoutModal.style.display = 'flex';
+      renderWorkoutList();
+    }
+
+  } catch (e) {
+    console.error("Unexpected loadData error:", e);
+    alert("Failed to load data");
+  }
 }
 
 function updateTodayWorkoutName() {
-  const el = document.getElementById('todayWorkout');
-  if (!el || !currentWorkoutId) return;
-  el.textContent = workouts[currentWorkoutId]?.name || '';
+  const todayWorkoutEl = document.getElementById('todayWorkout');
+  if (!todayWorkoutEl) return;
+
+  if (currentWorkoutId && workouts[currentWorkoutId]) {
+    todayWorkoutEl.textContent = workouts[currentWorkoutId].name;
+  } else {
+    todayWorkoutEl.textContent = '';
+  }
 }
 
 // --- Setup workout buttons dynamically ---
@@ -264,9 +299,11 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
           <input id="notes" placeholder="Notes" value="${inputState.notes}">
         </div>
 
-        <button class="full-width save" onclick="updateSet()">Update</button>
-        <button class="full-width" onclick="deleteSet(editingSetId)">Delete</button>
-        <button class="full-width" onclick="cancelEdit()">Cancel</button>
+        <div class="button-row">
+  <button class="half-width save update" onclick="updateSet()">Update</button>
+  <button class="half-width delete" onclick="deleteSet(editingSetId)">Delete</button>
+</div>
+        <button class="full-width cancel" onclick="cancelEdit()">Cancel</button>
       ` : `
         <button class="full-width save" onclick="saveSet()">Save</button>
       `}
@@ -289,7 +326,7 @@ function getSets(exId){
   })
   .slice(-5);
 
-  if(filtered.length === 0) return `<div class="sets-list-empty">No sets yet</div>`;
+  if(filtered.length === 0) return `<div class="sets-list-empty"></div>`;
   return filtered.map((s,i)=>{
     return `<div class="sets-pill" onclick="editSet('${s.id}')">
   <div class="sets-pill-main">
@@ -493,6 +530,37 @@ loadData();
 updateTimerDisplay();
 updateTodayDate();
 
+function renderWorkoutList() {
+  if (!workoutList) return;
+
+  workoutList.innerHTML = "";
+
+  Object.keys(workouts).forEach((id, idx) => {
+    const btn = document.createElement("button");
+
+    btn.textContent = workouts[id].name || `Workout ${String.fromCharCode(65+idx)}`;
+    btn.className = "full-width";
+    btn.style.marginBottom = "10px";
+
+    btn.onclick = () => {
+  currentWorkoutId = id;
+  currentIndex = 0;
+
+  // Make sure the day has an entry in logCache
+  if (!logCache[currentDate]) logCache[currentDate] = {};
+  if (!logCache[currentDate][currentWorkoutId]) logCache[currentDate][currentWorkoutId] = [];
+
+  workoutModal.style.display = 'none';
+
+  // Load exercises for this day/workout
+  loadExercise();
+  updateTodayWorkoutName();
+};
+
+    workoutList.appendChild(btn);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const calendarBtn = document.getElementById('calendarBtn');
   const calendarModal = document.getElementById('calendarModal');
@@ -538,31 +606,7 @@ closeWorkoutModal.onclick = () => {
   workoutModal.style.display = 'none';
 };
 
-function renderWorkoutList() {
-  if (!workoutList) return;
 
-  workoutList.innerHTML = "";
-
-  Object.keys(workouts).forEach((id, idx) => {
-    const btn = document.createElement("button");
-
-    btn.textContent = workouts[id].name || `Workout ${String.fromCharCode(65+idx)}`;
-    btn.className = "full-width";
-    btn.style.marginBottom = "10px";
-
-    btn.onclick = () => {
-      currentWorkoutId = id;
-      currentIndex = 0;
-
-      workoutModal.style.display = 'none';
-
-      loadExercise();
-      updateTodayWorkoutName();
-    };
-
-    workoutList.appendChild(btn);
-  });
-}
 
   // 👇 Close menu if clicking outside
   document.addEventListener('click', () => {
@@ -601,15 +645,33 @@ function renderWorkoutList() {
     fullCalendar.innerHTML = html;
 
     fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
-      dayEl.onclick = () => {
-        currentDate = dayEl.dataset.iso;
+  dayEl.onclick = () => {
+    currentDate = dayEl.dataset.iso;
+    inputState.lastExId = null;
 
-        inputState.lastExId = null;
+    // Update date display
+    updateTodayDate();
 
-        calendarModal.style.display = 'none';
-        loadExercise();
-        updateTodayDate();
-      };
-    });
+    // Check if a workout exists for this day
+    const dayLogs = logCache[currentDate] || {};
+    const existingWorkoutIds = Object.keys(dayLogs);
+
+    if (existingWorkoutIds.length > 0) {
+      // ✅ Workout exists → load it
+      currentWorkoutId = existingWorkoutIds[0];
+      currentIndex = 0;
+      loadExercise();
+      updateTodayWorkoutName();
+    } else {
+      // ⚡ No workout yet → open modal to select
+      workoutModal.style.display = 'flex';
+      renderWorkoutList(); // same as your existing modal
+      document.getElementById('exerciseCard').innerHTML = `<p>Select a workout for this day</p>`;
+      document.getElementById('todayWorkout').textContent = '';
+    }
+
+    calendarModal.style.display = 'none';
+  };
+});
   }
 });
