@@ -136,6 +136,17 @@ body {
   justify-content: flex-start;
   gap: 32px;
 }
+.sets-pill-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.sets-pill-note {
+  font-size: 16px;
+  opacity: 0.8;
+}
 .sets-pill-weight {
   min-width: 75px;
   text-align: left;

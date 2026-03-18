@@ -328,10 +328,15 @@ function getSets(exId){
 
   if(filtered.length === 0) return ``;
   return filtered.map((s,i)=>{
-    return `<div class="sets-pill" onclick="editSet('${s.id}')">
-  <div class="sets-pill-main">
-    <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
-    <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
+    const hasNote = s.notes && s.notes.trim() !== "";
+
+return `<div class="sets-pill" onclick="editSet('${s.id}')">
+  <div class="sets-pill-top">
+    <div class="sets-pill-main">
+      <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
+      <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
+    </div>
+    ${hasNote ? `<div class="sets-pill-note">📝</div>` : ``}
   </div>
 </div>`;
   }).join("");
