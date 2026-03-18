@@ -326,7 +326,7 @@ function getSets(exId){
   })
   .slice(-5);
 
-  if(filtered.length === 0) return `<div class="sets-list-empty"></div>`;
+  if(filtered.length === 0) return ``;
   return filtered.map((s,i)=>{
     return `<div class="sets-pill" onclick="editSet('${s.id}')">
   <div class="sets-pill-main">
