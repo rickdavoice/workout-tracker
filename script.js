@@ -1,18 +1,14 @@
 // --- Firebase App (already initialized in HTML) ---
 const db = firebase.firestore();
-// global audio object
-let timerSound = new Audio("https://www.soundjay.com/button/beep-10.mp3");
-timerSound.volume = 1.0;
-timerSound.loop = true; // optional if you want repeating beep
 
-// unlock audio on first user tap
-document.addEventListener("click", () => {
-  timerSound.play().then(()=>timerSound.pause()).catch(()=>{});
-}, { once: true });
 // --- Variables ---
 let editingSetId = null;
 let lastLoadedDate = null;
 let currentWorkoutId = null;
+let activeTab = 'track';
+let historySets = [];
+let isLoadingHistory = false;
+let calendarDate = new Date(); // controls what month is shown
 // --- Input state & per-day memory ---
 let inputState = { weight:'', reps:'', notes:'', lastExId: null };
 let lastInputByDate = {}; // { [date]: { [exerciseId]: { weight, reps } } }
@@ -24,37 +20,22 @@ let workouts = {};          // { workoutId: {name, exercises: [exerciseId,...]} 
 let exercises = {};         // { exerciseId: exerciseName }
 let logCache = {};          // { date: { workoutId: [sets] } }
 
+const workoutColors = {};
+const colorPalette = [
+  "#6c3483", // purple
+  "#2ecc71", // green
+  "#3498db", // blue
+  "#e67e22", // orange
+  "#e74c3c", // red
+  "#f1c40f"  // yellow
+];
+
 // --- Utility ---
 function getLocalISODate(d = new Date()){
   const tzo = d.getTimezoneOffset();
   return new Date(d.getTime() - tzo*60*1000).toISOString().slice(0,10);
 }
 
-// --- Timer ---
-function updateTimerDisplay(){ document.getElementById("timer").innerText = rest; }
-function startTimer(){
-  clearInterval(interval);
-  rest = 75;
-  updateTimerDisplay();
-
-  interval = setInterval(()=>{
-    rest--;
-    updateTimerDisplay();
-
-    if(rest <= 0){
-      clearInterval(interval);
-
-      // ✅ Play beep
-      timerSound.play().catch(()=>console.log("Audio blocked — tap page to allow"));
-
-      // optional: vibrate phone
-      if(navigator.vibrate) navigator.vibrate([500,200,500]);
-
-      // stop beep after 20 seconds automatically
-      setTimeout(()=>timerSound.pause(), 20000);
-    }
-  }, 1000);
-}
 
 // --- Input adjustments ---
 function changeValue(id, amount){
@@ -63,6 +44,102 @@ function changeValue(id, amount){
   let newValue = parseFloat(el.value||0) + amount;
   if(newValue<0) newValue = 0;
   el.value = newValue;
+}
+
+async function switchTab(tab) {
+  activeTab = tab;
+
+  if (tab === 'history') {
+    await loadHistory();
+  } else {
+    historySets = []; // reset when going back to track
+  }
+
+  loadExercise();
+}
+
+async function loadHistory() {
+  try {
+    const exId = workouts[currentWorkoutId]?.exercises[currentIndex];
+    if (!exId) return;
+
+    isLoadingHistory = true;
+    historySets = [];
+    loadExercise(); // show loading state
+
+    const snapshot = await db.collection("workout-logs")
+      .where("exerciseID", "==", exId)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get();
+
+    historySets = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+  } catch (e) {
+    console.error("Failed to load history:", e);
+    historySets = [];
+  } finally {
+    isLoadingHistory = false;
+    loadExercise(); // re-render after data loads
+  }
+}
+
+function historyHTML() {
+  if (isLoadingHistory) {
+    return `<div style="opacity:0.6;">Loading...</div>`;
+  }
+
+  if (!historySets.length) {
+    return `<div style="opacity:0.6;">No history yet</div>`;
+  }
+
+  // --- Group by date ---
+  const grouped = {};
+
+  historySets.forEach(set => {
+    const date = set.date;
+    if (!grouped[date]) grouped[date] = [];
+    grouped[date].push(set);
+  });
+
+  // --- Sort dates (newest first) ---
+  const sortedDates = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+
+  // --- Build UI ---
+  return sortedDates.map(date => {
+    const sets = grouped[date].sort((a, b) => {
+  const aTime = a.createdAt?.seconds
+    ? a.createdAt.seconds
+    : new Date(a.createdAt).getTime();
+
+  const bTime = b.createdAt?.seconds
+    ? b.createdAt.seconds
+    : new Date(b.createdAt).getTime();
+
+  return aTime - bTime; // ✅ oldest → newest
+});
+
+    const formattedDate = new Date(date + "T00:00:00").toLocaleDateString('default', {
+      month: 'long',
+      day: 'numeric'
+    });
+
+    return `
+      <div class="history-day">
+        <div class="history-date">${formattedDate}</div>
+
+        ${sets.map(s => `
+          <div class="history-row">
+            <span>${s.weight} lbs</span>
+            <span>${s.reps} reps</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
 }
 
 
@@ -92,6 +169,11 @@ async function loadData() {
       console.error("Failed to load workouts:", e);
       workouts = {};
     }
+
+    // Assign colors to workouts
+Object.keys(workouts).forEach((id, index) => {
+  workoutColors[id] = colorPalette[index % colorPalette.length];
+});
 
     // --- Workout-Exercises mapping ---
     try {
@@ -282,6 +364,11 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
     <div class="card">
       <div class="exercise">${exName}</div>
 
+      <div class="tabs">
+  <button class="tab ${activeTab === 'track' ? 'active' : ''}" onclick="switchTab('track')">Track</button>
+  <button class="tab ${activeTab === 'history' ? 'active' : ''}" onclick="switchTab('history')">History</button>
+</div>
+
       <div class="input-group">
         <button onclick="changeValue('weight',-2.5)">-</button>
         <input id="weight" placeholder="Weight (lbs)" type="number" value="${inputState.weight}">
@@ -308,10 +395,14 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
         <button class="full-width save" onclick="saveSet()">Save</button>
       `}
 
-      <div class="sets">${setsHTML}</div>
+      <div class="sets">
+  ${activeTab === 'track' ? setsHTML : historyHTML()}
+</div>
     </div>
   `;
 }
+
+
 
 // --- Get sets ---
 function getSets(exId){
@@ -438,8 +529,6 @@ lastInputByDate[currentDate][exId] = {
   reps
 };
 
-    startTimer();
-
 
 
     inputState = {
@@ -532,7 +621,6 @@ function updateTodayDate() {
 }
 
 loadData();
-updateTimerDisplay();
 updateTodayDate();
 
 function renderWorkoutList() {
@@ -611,6 +699,11 @@ closeWorkoutModal.onclick = () => {
   workoutModal.style.display = 'none';
 };
 
+window.changeMonth = function(offset) {
+  calendarDate.setMonth(calendarDate.getMonth() + offset);
+  renderFullCalendar();
+};
+
 
 
   // 👇 Close menu if clicking outside
@@ -620,16 +713,23 @@ closeWorkoutModal.onclick = () => {
 
   // ✅ FULL calendar function (real one)
   function renderFullCalendar() {
-    const today = new Date();
-    const month = today.getMonth();
-    const year = today.getFullYear();
+    const month = calendarDate.getMonth();
+const year = calendarDate.getFullYear();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startWeekday = firstDay.getDay();
 
-    let html = `<div class='full-calendar-header'>${today.toLocaleString('default', { month: 'long' })} ${year}</div>`;
-    html += `<div class='full-calendar-grid'>`;
+    let html = `
+  <div class="full-calendar-header">
+    <button class="cal-nav" onclick="changeMonth(-1)">←</button>
+    <span>${calendarDate.toLocaleString('default', { month: 'long' })} ${year}</span>
+    <button class="cal-nav" onclick="changeMonth(1)">→</button>
+  </div>
+
+  <div class="calendar-body">
+    <div class='full-calendar-grid'>
+`;
 
     const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     weekdays.forEach(d => {
@@ -643,11 +743,44 @@ closeWorkoutModal.onclick = () => {
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = getLocalISODate(new Date(year, month, day));
       const selected = iso === currentDate ? 'selected' : '';
-      html += `<div class='full-calendar-day ${selected}' data-iso='${iso}'>${day}</div>`;
+      const dayLogs = logCache[iso] || {};
+const workoutIds = Object.keys(dayLogs);
+
+const dotsHTML = workoutIds.map(wId => {
+  const color = workoutColors[wId] || "#888";
+  return `<span class="calendar-dot" style="background:${color}"></span>`;
+}).join("");
+
+html += `
+  <div class='full-calendar-day ${selected}' data-iso='${iso}'>
+    <div>${day}</div>
+    <div class="calendar-dots">${dotsHTML}</div>
+  </div>
+`;
     }
 
     html += `</div>`;
-    fullCalendar.innerHTML = html;
+   
+    html += `</div>`;
+
+// 👇 ADD LEGEND HERE
+html += `<div class="calendar-legend">`;
+
+Object.keys(workouts).forEach(id => {
+  html += `
+    <div class="legend-item">
+      <span class="legend-color" style="background:${workoutColors[id]}"></span>
+      <span>${workouts[id].name}</span>
+    </div>
+  `;
+});
+
+html += `</div>`;
+html += `</div>`;
+
+// 👇 THEN render
+fullCalendar.innerHTML = html;
+   
 
     fullCalendar.querySelectorAll('.full-calendar-day[data-iso]').forEach(dayEl => {
   dayEl.onclick = () => {
@@ -678,5 +811,6 @@ closeWorkoutModal.onclick = () => {
     calendarModal.style.display = 'none';
   };
 });
+
   }
 });

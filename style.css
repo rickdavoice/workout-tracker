@@ -209,6 +209,65 @@ h1 {
   border: 1px solid #23272a;
   transition: border 0.2s, background 0.2s;
 }
+.calendar-dots {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.calendar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.calendar-legend {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  color: #aaa;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.cal-nav {
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+
+.cal-nav:hover {
+  color: #fff;
+}
+
+.calendar-modal-content {
+  background: #23272a;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px #0006;
+
+  width: 340px;
+  max-width: 90vw;
+  height: 500px; /* 👈 fixed height */
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .day.today {
   border: 2px solid #6c3483;
   background: #1e1e1e;
@@ -216,25 +275,28 @@ h1 {
 .day.completed::after { content: "✔"; position: absolute; bottom: 5px; right: 5px; font-size: 12px; color: #6c3483; }
 .tabs {
   display: flex;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 24px;
+  width: 100%;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #2c2f33;
 }
 .tabs button {
-  padding: 12px 28px;
-  font-size: 19px;
-  background: #2e2e2e;
-  color: #f5f6fa;
-  border-radius: 10px;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  flex: 1;
+  background: transparent;
   border: none;
-  font-weight: 500;
-  box-shadow: 0 2px 8px #0002;
+  color: #aaa;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 10px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
 }
 .tabs button.active {
-  background: #6c3483;
   color: #fff;
-  box-shadow: 0 4px 16px #6c348344;
+  border-bottom: 2px solid #6c3483;
+}
+.tabs button:hover {
+  color: #ddd;
 }
 .tabs button.active:active,
 .tabs button.active:focus,
@@ -400,11 +462,37 @@ button {
   padding: 16px 0;
   font-size: 15px;
 }
+.history-day {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: #1e2225;
+  border-radius: 10px;
+}
+
+.history-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+.history-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 4px 0;
+  border-bottom: 1px solid #2c2f33;
+}
+
+.history-row:last-child {
+  border-bottom: none;
+}
+/*
 .timer {
-  position: fixed;       /* stick to viewport */
-  bottom: 20px;          /* distance from bottom of screen */
-  left: 50%;             /* center horizontally */
-  transform: translateX(-50%); /* truly center it */
+  position: fixed;      
+  bottom: 20px;          
+  left: 50%;             
+  transform: translateX(-50%); 
   
   width: 80px;
   height: 80px;
@@ -420,8 +508,8 @@ button {
   font-size: 36px;
   box-shadow: 0 4px 16px #6c348322;
   padding: 10px;
-  z-index: 1000;        /* make sure it's above other content */
-}
+  z-index: 1000;       
+}*/
 .save {
   background: #6c3483;
   color: #fff;
