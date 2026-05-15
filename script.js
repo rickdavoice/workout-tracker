@@ -654,6 +654,27 @@ function renderWorkoutList() {
   });
 }
 
+function renderExercisesList() {
+  if (!exerciseList) return;
+
+  exerciseList.innerHTML = "";
+
+  const exerciseIds = Object.keys(exercises);
+  if (exerciseIds.length === 0) {
+    exerciseList.innerHTML = "<p style='color:#aaa; text-align:center;'>No exercises yet</p>";
+    return;
+  }
+
+  exerciseIds.forEach((id) => {
+    const exName = exercises[id];
+    const div = document.createElement("div");
+    div.className = "exercise-list-item";
+    div.style.cssText = "background:#1e2225; padding:12px; border-radius:8px; margin-bottom:10px; color:#fff;";
+    div.textContent = exName;
+    exerciseList.appendChild(div);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const calendarBtn = document.getElementById('calendarBtn');
   const calendarModal = document.getElementById('calendarModal');
@@ -700,15 +721,12 @@ const exerciseList = document.getElementById('exerciseList');
  
 };
 
-
   openExercises.onclick = () => {
-  menuDropdown.style.display = 'none';
-  calendarBtn.classList.remove('open');
-
-  exercisesModal.style.display = 'flex';
-
- 
-};
+    menuDropdown.style.display = 'none';
+    calendarBtn.classList.remove('open');
+    exercisesModal.style.display = 'flex';
+    renderExercisesList();
+  };
 
 closeWorkoutModal.onclick = () => {
   workoutModal.style.display = 'none';
@@ -718,7 +736,6 @@ closeWorkoutModal.onclick = () => {
 closeExerciseModal.onclick = () => {
   exercisesModal.style.display = 'none';
 };
-
 
 
 
