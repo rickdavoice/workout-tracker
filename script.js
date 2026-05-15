@@ -662,9 +662,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuDropdown = document.getElementById('menuDropdown');
   const openCalendar = document.getElementById('openCalendar');
   const openWorkouts = document.getElementById('openWorkouts');
+  const openExercises = document.getElementById('openExercises');
 const workoutModal = document.getElementById('workoutModal');
 const closeWorkoutModal = document.getElementById('closeWorkoutModal');
 const workoutList = document.getElementById('workoutList');
+const exercisesModal = document.getElementById('exercisesModal');
+const closeExerciseModal = document.getElementById('closeExerciseModal');
+const exerciseList = document.getElementById('exerciseList');
 
   if (!calendarBtn || !calendarModal || !closeCalendarModal || !fullCalendar) return;
 
@@ -693,11 +697,30 @@ const workoutList = document.getElementById('workoutList');
 
   workoutModal.style.display = 'flex';
   renderWorkoutList();
+ 
+};
+
+
+  openExercises.onclick = () => {
+  menuDropdown.style.display = 'none';
+  calendarBtn.classList.remove('open');
+
+  exercisesModal.style.display = 'flex';
+
+ 
 };
 
 closeWorkoutModal.onclick = () => {
   workoutModal.style.display = 'none';
 };
+
+
+closeExerciseModal.onclick = () => {
+  exercisesModal.style.display = 'none';
+};
+
+
+
 
 window.changeMonth = function(offset) {
   calendarDate.setMonth(calendarDate.getMonth() + offset);
