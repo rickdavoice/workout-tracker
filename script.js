@@ -151,7 +151,11 @@ async function loadData() {
       const exSnap = await db.collection("exercises").get();
       exercises = {};
       exSnap.forEach(doc => {
-        exercises[doc.id] = doc.data().name;
+        const data = doc.data();
+        exercises[doc.id] = {
+          name: data.name || "",
+          type: data.type || ""
+        };
       });
     } catch (e) {
       console.error("Failed to load exercises:", e);
@@ -270,7 +274,8 @@ function loadExercise(){
     return;
   }
 
-  const exName = exercises[exId] || "Exercise";
+  const exName = (typeof exercises[exId] === 'string' ? exercises[exId] : exercises[exId]?.name) || "Exercise";
+  const exType = (typeof exercises[exId] === 'string' ? '' : exercises[exId]?.type) || "";
   const setsHTML = getSets(exId);
 
   // Reset inputs if switching exercises (unless editing)
@@ -280,8 +285,8 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
   // Last set for this exercise **today**
   const lastSetToday = [...setsToday].reverse().find(s => s.exerciseID === exId);
 
-  const exName = (exercises[exId] || "").toLowerCase();
-  const isPullUp = exName.includes("pull up");
+  const exNameForCheck = ((typeof exercises[exId] === 'string' ? exercises[exId] : exercises[exId]?.name) || "").toLowerCase();
+  const isPullUp = exNameForCheck.includes("pull up");
 
   // Last inputs memory for this exercise today
   const lastInput = lastInputByDate[currentDate]?.[exId] || {};
@@ -363,6 +368,7 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
   container.innerHTML = `
     <div class="card">
       <div class="exercise">${exName}</div>
+      ${exType ? `<div style="color:#aaa; font-size:13px; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.5px;">${exType}</div>` : ''}
 
       <div class="tabs">
   <button class="tab ${activeTab === 'track' ? 'active' : ''}" onclick="switchTab('track')">Track</button>
@@ -665,14 +671,107 @@ function renderExercisesList() {
     return;
   }
 
+  // Group exercises by type
+  const grouped = {};
+  const typeOrder = ['Chest', 'Back', 'Shoulders', 'Legs', 'Triceps', 'Biceps', 'Abs'];
+
   exerciseIds.forEach((id) => {
-    const exName = exercises[id];
-    const div = document.createElement("div");
-    div.className = "exercise-list-item";
-    div.style.cssText = "background:#1e2225; padding:12px; border-radius:8px; margin-bottom:10px; color:#fff;";
-    div.textContent = exName;
-    exerciseList.appendChild(div);
+    const ex = exercises[id];
+    const exType = (typeof ex === 'string' ? '' : ex.type) || 'Other';
+    if (!grouped[exType]) {
+      grouped[exType] = [];
+    }
+    grouped[exType].push({ id, name: typeof ex === 'string' ? ex : ex.name });
   });
+
+  // Sort types with predefined order first, then others
+  const sortedTypes = [
+    ...typeOrder.filter(t => grouped[t]),
+    ...Object.keys(grouped).filter(t => !typeOrder.includes(t))
+  ];
+
+  // Render collapsible sections
+  sortedTypes.forEach((type) => {
+    const items = grouped[type];
+    const sectionId = `exercise-section-${type}`;
+    const contentId = `exercise-content-${type}`;
+
+    const section = document.createElement('div');
+    section.style.cssText = "margin-bottom:12px;";
+
+    const header = document.createElement('div');
+    header.style.cssText = "background:#1e2225; padding:12px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; user-select:none;";
+    header.innerHTML = `<span style="color:#6c3483; font-weight:bold;">▶</span><span style="color:#fff; font-weight:600;">${type}</span><span style="color:#aaa; font-size:12px;margin-left:auto;">${items.length}</span>`;
+    header.id = sectionId;
+    header.onclick = () => {
+      const content = document.getElementById(contentId);
+      const arrow = header.querySelector('span');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        arrow.textContent = '▼';
+      } else {
+        content.style.display = 'none';
+        arrow.textContent = '▶';
+      }
+    };
+
+    const content = document.createElement('div');
+    content.id = contentId;
+    content.style.cssText = "display:none; padding-left:8px; margin-top:8px;";
+
+    items.forEach((item) => {
+      const itemDiv = document.createElement('div');
+      itemDiv.style.cssText = "background:#2c3033; padding:10px 12px; border-radius:6px; margin-bottom:8px; color:#fff; font-size:14px;";
+      itemDiv.textContent = item.name;
+      content.appendChild(itemDiv);
+    });
+
+    section.appendChild(header);
+    section.appendChild(content);
+    exerciseList.appendChild(section);
+  });
+}
+
+function showExerciseForm() {
+  const exerciseForm = document.getElementById('exerciseForm');
+  const exerciseName = document.getElementById('exerciseName');
+  if (exerciseForm) {
+    exerciseForm.style.display = 'block';
+    if (exerciseName) exerciseName.focus();
+  }
+}
+
+function hideExerciseForm() {
+  const exerciseForm = document.getElementById('exerciseForm');
+  const exerciseName = document.getElementById('exerciseName');
+  const exerciseType = document.getElementById('exerciseType');
+  if (exerciseForm) {
+    exerciseForm.style.display = 'none';
+    if (exerciseName) exerciseName.value = '';
+    if (exerciseType) exerciseType.value = '';
+  }
+}
+
+async function saveExercise() {
+  const exerciseName = document.getElementById('exerciseName');
+  const exerciseType = document.getElementById('exerciseType');
+  if (!exerciseName || !exerciseName.value.trim()) {
+    alert('Enter an exercise name');
+    return;
+  }
+
+  const name = exerciseName.value.trim();
+  const type = exerciseType ? exerciseType.value : '';
+
+  try {
+    const docRef = await db.collection("exercises").add({ name, type });
+    exercises[docRef.id] = { name, type };
+    renderExercisesList();
+    hideExerciseForm();
+  } catch (e) {
+    console.error('Failed to save exercise:', e);
+    alert('Could not save exercise');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -735,7 +834,24 @@ closeWorkoutModal.onclick = () => {
 
 closeExerciseModal.onclick = () => {
   exercisesModal.style.display = 'none';
+  hideExerciseForm();
 };
+
+const addExerciseBtn = document.getElementById('addExerciseBtn');
+const exerciseFormSave = document.getElementById('exerciseFormSave');
+const exerciseFormCancel = document.getElementById('exerciseFormCancel');
+
+if (addExerciseBtn) {
+  addExerciseBtn.onclick = () => showExerciseForm();
+}
+
+if (exerciseFormSave) {
+  exerciseFormSave.onclick = () => saveExercise();
+}
+
+if (exerciseFormCancel) {
+  exerciseFormCancel.onclick = () => hideExerciseForm();
+}
 
 
 
