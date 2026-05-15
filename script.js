@@ -214,7 +214,7 @@ Object.keys(workouts).forEach((id, index) => {
       loadWorkout(currentWorkoutId);
     } else {
       document.getElementById('exerciseCard').innerHTML = `<p>Select a workout for today</p>`;
-      workoutModal.style.display = 'flex';
+      workoutModal.style.display = 'none';
       renderWorkoutList();
     }
 
