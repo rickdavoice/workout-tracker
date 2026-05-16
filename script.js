@@ -36,6 +36,282 @@ function getLocalISODate(d = new Date()){
   return new Date(d.getTime() - tzo*60*1000).toISOString().slice(0,10);
 }
 
+// --- Manage Workouts ---
+let expandedWorkoutId = null;
+function renderManageWorkouts() {
+  const container = document.getElementById('manageWorkoutsList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  Object.keys(workouts).forEach(id => {
+    const w = workouts[id];
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#2c3033; padding:10px; border-radius:6px; margin-bottom:8px;';
+
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = 'display:flex; align-items:center; gap:8px; justify-content:space-between; cursor:pointer; flex-wrap:wrap;';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.style.cssText = 'display:flex; align-items:center; gap:8px; flex:1; min-width:0;';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'color:#fff; font-weight:600; min-width:0;';
+    title.textContent = w.name || '(untitled)';
+
+    const count = document.createElement('div');
+    count.style.cssText = 'color:#aaa; font-size:13px;';
+    count.textContent = `${(w.exercises || []).length} exercise${(w.exercises || []).length === 1 ? '' : 's'}`;
+
+    titleWrap.appendChild(title);
+    titleWrap.appendChild(count);
+
+    const arrow = document.createElement('div');
+    arrow.style.cssText = 'color:#aaa; font-size:16px;';
+    arrow.textContent = expandedWorkoutId === id ? '▾' : '▸';
+
+    headerRow.appendChild(titleWrap);
+    headerRow.appendChild(arrow);
+
+    const content = document.createElement('div');
+    content.style.cssText = 'display:none; margin-top:12px; padding-left:0; width:100%;';
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+
+    const existingOrder = w?.exercises || [];
+    const allExerciseIds = Object.keys(exercises || {}).sort((a, b) => {
+      const ai = existingOrder.indexOf(a);
+      const bi = existingOrder.indexOf(b);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    if (allExerciseIds.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:#aaa; font-size:14px; padding:10px 0;';
+      empty.textContent = 'No exercises available. Add exercises first.';
+      list.appendChild(empty);
+    } else {
+      allExerciseIds.forEach(exId => {
+        const ex = exercises[exId];
+        const row = document.createElement('div');
+        const selected = existingOrder.includes(exId);
+        row.style.cssText = `display:flex; align-items:center; gap:8px; padding:8px; background:${selected ? '#2d3b52' : '#1b1d1e'}; border-radius:6px; color:#fff; cursor:pointer;`;
+        row.dataset.exId = exId;
+        row.dataset.selected = selected ? 'true' : 'false';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.textContent = (typeof ex === 'string') ? ex : ex.name || exId;
+        nameDiv.style.cssText = 'flex:1; min-width:0;';
+
+        const typeDiv = document.createElement('div');
+        typeDiv.textContent = (typeof ex === 'string') ? '' : ex.type ? ex.type : '';
+        typeDiv.style.cssText = 'color:#86c3ff; font-size:13px; white-space:nowrap;';
+        if (typeDiv.textContent) {
+          typeDiv.style.marginRight = '8px';
+        }
+
+        const up = document.createElement('button');
+        up.type = 'button';
+        up.textContent = '^';
+        up.title = 'Move up';
+        up.style.cssText = 'flex:0 0 auto; padding:10px;';
+        up.onclick = (e) => {
+          e.stopPropagation();
+          const prev = row.previousElementSibling;
+          if (prev) list.insertBefore(row, prev);
+        };
+
+        const down = document.createElement('button');
+        down.type = 'button';
+        down.textContent = 'v';
+        down.title = 'Move down';
+        down.style.cssText = 'flex:0 0 auto; padding:10px;';
+        down.onclick = (e) => {
+          e.stopPropagation();
+          const next = row.nextElementSibling;
+          if (next) list.insertBefore(next, row);
+        };
+
+        row.onclick = (e) => {
+          if (e.target.closest('button')) return;
+          const isSelected = row.dataset.selected === 'true';
+          row.dataset.selected = isSelected ? 'false' : 'true';
+          row.style.background = row.dataset.selected === 'true' ? '#2d3b52' : '#1b1d1e';
+        };
+
+        row.appendChild(nameDiv);
+        if (typeDiv.textContent) row.appendChild(typeDiv);
+        row.appendChild(up);
+        row.appendChild(down);
+        list.appendChild(row);
+      });
+    }
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Changes';
+    saveBtn.className = 'save';
+    saveBtn.style.cssText = 'margin-top:10px; width:100%; padding:10px;';
+    saveBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const selected = [];
+      list.querySelectorAll('div[data-ex-id]').forEach(row => {
+        if (row.dataset.selected === 'true') selected.push(row.dataset.exId);
+      });
+      try {
+        const wxRef = db.collection('workout-exercises');
+        const existing = await wxRef.where('workoutID', '==', id).get();
+        const deletePromises = [];
+        existing.forEach(doc => deletePromises.push(doc.ref.delete()));
+        await Promise.all(deletePromises);
+        const addPromises = [];
+        selected.forEach((exId, idx) => addPromises.push(wxRef.add({ workoutID: id, exerciseID: exId, order: idx })));
+        await Promise.all(addPromises);
+        workouts[id].exercises = selected;
+        expandedWorkoutId = null;
+        renderManageWorkouts();
+      } catch (err) {
+        console.error('Failed to save workout:', err);
+        alert('Could not save workout');
+      }
+    };
+
+    content.appendChild(list);
+    content.appendChild(saveBtn);
+
+    headerRow.onclick = () => {
+      expandedWorkoutId = expandedWorkoutId === id ? null : id;
+      renderManageWorkouts();
+    };
+
+    if (expandedWorkoutId === id) {
+      content.style.display = 'block';
+      arrow.textContent = '▾';
+    }
+
+    card.appendChild(headerRow);
+    card.appendChild(content);
+    container.appendChild(card);
+  });
+}
+
+let _editingWorkoutId = null;
+function showWorkoutEditForm(workoutId) {
+  _editingWorkoutId = workoutId;
+  const form = document.getElementById('workoutEditForm');
+  const nameIn = document.getElementById('workoutNameInput');
+  if (!form || !nameIn) return;
+  const w = workouts[workoutId];
+  nameIn.value = w?.name || '';
+
+  // Build exercises checklist
+  const list = document.getElementById('workoutExercisesList');
+  if (list) {
+    list.innerHTML = '';
+    const existingOrder = w?.exercises || [];
+    const allExerciseIds = Object.keys(exercises || {}).sort((a, b) => {
+      const ai = existingOrder.indexOf(a);
+      const bi = existingOrder.indexOf(b);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    allExerciseIds.forEach(exId => {
+      const ex = exercises[exId];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 8px; background:#1b1d1e; margin-bottom:6px; border-radius:6px; color:#fff;';
+      row.dataset.exId = exId;
+
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.dataset.exId = exId;
+      chk.checked = (w?.exercises || []).includes(exId);
+
+      const nameDiv = document.createElement('div');
+      nameDiv.textContent = (typeof ex === 'string') ? ex : ex.name || exId;
+      nameDiv.style.cssText = 'flex:1;';
+
+      const up = document.createElement('button');
+      up.type = 'button';
+      up.textContent = '^';
+      up.title = 'Move up';
+      up.style.cssText = 'flex:0 0 auto; padding:6px; margin-left:6px;';
+      up.onclick = () => {
+        const prev = row.previousElementSibling;
+        if (prev) list.insertBefore(row, prev);
+      };
+
+      const down = document.createElement('button');
+      down.type = 'button';
+      down.textContent = 'v';
+      down.title = 'Move down';
+      down.style.cssText = 'flex:0 0 auto; padding:6px;';
+      down.onclick = () => {
+        const next = row.nextElementSibling;
+        if (next) list.insertBefore(next, row);
+      };
+
+      row.appendChild(chk);
+      row.appendChild(nameDiv);
+      row.appendChild(up);
+      row.appendChild(down);
+      list.appendChild(row);
+    });
+  }
+  form.style.display = 'block';
+}
+
+function hideWorkoutEditForm() {
+  _editingWorkoutId = null;
+  const form = document.getElementById('workoutEditForm');
+  const nameIn = document.getElementById('workoutNameInput');
+  if (!form) return;
+  form.style.display = 'none';
+  if (nameIn) nameIn.value = '';
+  const list = document.getElementById('workoutExercisesList');
+  if (list) list.innerHTML = '';
+}
+
+async function saveWorkoutEdit() {
+  if (!_editingWorkoutId) return;
+  const nameIn = document.getElementById('workoutNameInput');
+  const name = nameIn?.value?.trim();
+  const list = document.getElementById('workoutExercisesList');
+  const selected = [];
+  if (list) {
+    // read rows in DOM order to preserve order
+    list.querySelectorAll('div[data-ex-id]').forEach(row => {
+      const chk = row.querySelector('input[type=checkbox]');
+      if (chk && chk.checked) selected.push(row.dataset.exId);
+    });
+  }
+  if (!name) { alert('Enter workout name'); return; }
+  try {
+    await db.collection('workouts').doc(_editingWorkoutId).set({ name }, { merge: true });
+    workouts[_editingWorkoutId].name = name;
+    // Update workout-exercises mapping: remove existing entries then add new ones
+    const wxRef = db.collection('workout-exercises');
+    const existing = await wxRef.where('workoutID', '==', _editingWorkoutId).get();
+    const deletePromises = [];
+    existing.forEach(doc => { deletePromises.push(doc.ref.delete()); });
+    await Promise.all(deletePromises);
+    const addPromises = [];
+    selected.forEach((exId, idx) => {
+      addPromises.push(wxRef.add({ workoutID: _editingWorkoutId, exerciseID: exId, order: idx }));
+    });
+    await Promise.all(addPromises);
+    workouts[_editingWorkoutId].exercises = selected;
+    renderManageWorkouts();
+    hideWorkoutEditForm();
+  } catch (e) {
+    console.error('Failed to save workout:', e);
+    alert('Could not save workout');
+  }
+}
+
 
 // --- Input adjustments ---
 function changeValue(id, amount){
@@ -119,7 +395,7 @@ function historyHTML() {
     ? b.createdAt.seconds
     : new Date(b.createdAt).getTime();
 
-  return aTime - bTime; // ✅ oldest → newest
+  return aTime - bTime; // oldest -> newest
 });
 
     const formattedDate = new Date(date + "T00:00:00").toLocaleDateString('default', {
@@ -167,7 +443,8 @@ async function loadData() {
       const workoutSnap = await db.collection("workouts").get();
       workouts = {};
       workoutSnap.forEach(doc => {
-        workouts[doc.id] = { name: doc.data().name, exercises: [] };
+        const data = doc.data();
+        workouts[doc.id] = { name: data.name || '', type: data.type || '', exercises: [] };
       });
     } catch (e) {
       console.error("Failed to load workouts:", e);
@@ -419,7 +696,7 @@ function getSets(exId){
   .sort((a,b) => {
     const aTime = a.createdAt?.seconds || new Date(a.createdAt).getTime();
     const bTime = b.createdAt?.seconds || new Date(b.createdAt).getTime();
-    return aTime - bTime; // oldest → newest
+    return aTime - bTime; // oldest -> newest
   })
   .slice(-5);
 
@@ -433,7 +710,7 @@ return `<div class="sets-pill" onclick="editSet('${s.id}')">
       <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
       <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
     </div>
-    ${hasNote ? `<div class="sets-pill-note">📝</div>` : ``}
+    ${hasNote ? `<div class="sets-pill-note">(note)</div>` : ``}
   </div>
 </div>`;
   }).join("");
@@ -503,7 +780,7 @@ async function saveSet(){
   const weight = document.getElementById("weight").value;
   const reps = document.getElementById("reps").value;
 
-  // ✅ FIX: safely handle notes
+  // Fix: safely handle notes
   const notesEl = document.getElementById("notes");
   const notes = notesEl ? notesEl.value : "";
 
@@ -591,7 +868,7 @@ function nextExercise(){
     currentIndex++;
     loadExercise();
   } else {
-    alert("Workout Complete! 🎉");
+    alert("Workout Complete!");
     currentIndex = 0;
     loadExercise();
   }
@@ -700,19 +977,19 @@ function renderExercisesList() {
     section.style.cssText = "margin-bottom:12px;";
 
     const header = document.createElement('div');
-    header.style.cssText = "background:#1e2225; padding:12px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; user-select:none;";
-    header.innerHTML = `<span style="color:#6c3483; font-weight:bold;">▶</span><span style="color:#fff; font-weight:600;">${type}</span><span style="color:#aaa; font-size:12px;margin-left:auto;">${items.length}</span>`;
-    header.id = sectionId;
+    header.style.cssText = "background:#1e2225; padding:12px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; user-select: none;";
+    header.innerHTML = `<span style="color:#6c3483; font-weight:bold;">&gt;
+  </span><span style="color:#fff; font-weight:600;">${type}</span><span style="color:#aaa; font-size:12px;margin-left:auto;">${items.length}</span>`;
     header.onclick = () => {
       const content = document.getElementById(contentId);
       const arrow = header.querySelector('span');
-      if (content.style.display === 'none') {
-        content.style.display = 'block';
-        arrow.textContent = '▼';
-      } else {
-        content.style.display = 'none';
-        arrow.textContent = '▶';
-      }
+        if (content.style.display === 'none') {
+          content.style.display = 'block';
+          arrow.textContent = 'v';
+        } else {
+          content.style.display = 'none';
+          arrow.textContent = '>';
+        }
     };
 
     const content = document.createElement('div');
@@ -783,30 +1060,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const openCalendar = document.getElementById('openCalendar');
   const openWorkouts = document.getElementById('openWorkouts');
   const openExercises = document.getElementById('openExercises');
-const workoutModal = document.getElementById('workoutModal');
-const closeWorkoutModal = document.getElementById('closeWorkoutModal');
-const workoutList = document.getElementById('workoutList');
-const exercisesModal = document.getElementById('exercisesModal');
-const closeExerciseModal = document.getElementById('closeExerciseModal');
-const exerciseList = document.getElementById('exerciseList');
+  const workoutModal = document.getElementById('workoutModal');
+  const closeWorkoutModal = document.getElementById('closeWorkoutModal');
+  const workoutList = document.getElementById('workoutList');
+  const exercisesModal = document.getElementById('exercisesModal');
+  const closeExerciseModal = document.getElementById('closeExerciseModal');
+  const exerciseList = document.getElementById('exerciseList');
+  const manageWorkoutsBtn = document.getElementById('manageWorkoutsBtn');
+  const manageWorkoutsModal = document.getElementById('manageWorkoutsModal');
+  const closeManageWorkoutsModal = document.getElementById('closeManageWorkoutsModal');
+  const manageWorkoutsList = document.getElementById('manageWorkoutsList');
+  const workoutEditSave = document.getElementById('workoutEditSave');
+  const workoutEditCancel = document.getElementById('workoutEditCancel');
 
   if (!calendarBtn || !calendarModal || !closeCalendarModal || !fullCalendar) return;
 
-  // 🔽 Toggle menu
+  // v Toggle menu
   calendarBtn.onclick = (e) => {
     e.stopPropagation();
     menuDropdown.style.display =
       menuDropdown.style.display === 'block' ? 'none' : 'block';
   };
 
-  // 📅 Open calendar from menu
+  // Calendar Open calendar from menu
   openCalendar.onclick = () => {
     menuDropdown.style.display = 'none';
     calendarModal.style.display = 'flex';
     renderFullCalendar();
   };
 
-  // ❌ Close calendar modal
+  // Close Close calendar modal
   closeCalendarModal.onclick = () => {
     calendarModal.style.display = 'none';
   };
@@ -819,6 +1102,14 @@ const exerciseList = document.getElementById('exerciseList');
   renderWorkoutList();
  
 };
+
+  if (manageWorkoutsBtn) {
+    manageWorkoutsBtn.onclick = () => {
+      menuDropdown.style.display = 'none';
+      manageWorkoutsModal.style.display = 'flex';
+      renderManageWorkouts();
+    };
+  }
 
   openExercises.onclick = () => {
     menuDropdown.style.display = 'none';
@@ -836,6 +1127,16 @@ closeExerciseModal.onclick = () => {
   exercisesModal.style.display = 'none';
   hideExerciseForm();
 };
+
+if (closeManageWorkoutsModal) {
+  closeManageWorkoutsModal.onclick = () => {
+    manageWorkoutsModal.style.display = 'none';
+    hideWorkoutEditForm();
+  };
+}
+
+if (workoutEditSave) workoutEditSave.onclick = () => saveWorkoutEdit();
+if (workoutEditCancel) workoutEditCancel.onclick = () => hideWorkoutEditForm();
 
 const addExerciseBtn = document.getElementById('addExerciseBtn');
 const exerciseFormSave = document.getElementById('exerciseFormSave');
@@ -862,12 +1163,12 @@ window.changeMonth = function(offset) {
 
 
 
-  // 👇 Close menu if clicking outside
+  //  Close menu if clicking outside
   document.addEventListener('click', () => {
     menuDropdown.style.display = 'none';
   });
 
-  // ✅ FULL calendar function (real one)
+  //  FULL calendar function (real one)
   function renderFullCalendar() {
     const month = calendarDate.getMonth();
 const year = calendarDate.getFullYear();
@@ -878,9 +1179,9 @@ const year = calendarDate.getFullYear();
 
     let html = `
   <div class="full-calendar-header">
-    <button class="cal-nav" onclick="changeMonth(-1)">←</button>
+    <button class="cal-nav" onclick="changeMonth(-1)"><</button>
     <span>${calendarDate.toLocaleString('default', { month: 'long' })} ${year}</span>
-    <button class="cal-nav" onclick="changeMonth(1)">→</button>
+    <button class="cal-nav" onclick="changeMonth(1)">></button>
   </div>
 
   <div class="calendar-body">
@@ -919,7 +1220,7 @@ html += `
    
     html += `</div>`;
 
-// 👇 ADD LEGEND HERE
+//  ADD LEGEND HERE
 html += `<div class="calendar-legend">`;
 
 Object.keys(workouts).forEach(id => {
@@ -934,7 +1235,7 @@ Object.keys(workouts).forEach(id => {
 html += `</div>`;
 html += `</div>`;
 
-// 👇 THEN render
+//  THEN render
 fullCalendar.innerHTML = html;
    
 
@@ -951,13 +1252,13 @@ fullCalendar.innerHTML = html;
     const existingWorkoutIds = Object.keys(dayLogs);
 
     if (existingWorkoutIds.length > 0) {
-      // ✅ Workout exists → load it
+      //  Workout exists > load it
       currentWorkoutId = existingWorkoutIds[0];
       currentIndex = 0;
       loadExercise();
       updateTodayWorkoutName();
     } else {
-      // ⚡ No workout yet → open modal to select
+      // No workout yet - open modal to select
       workoutModal.style.display = 'flex';
       renderWorkoutList(); // same as your existing modal
       document.getElementById('exerciseCard').innerHTML = `<p>Select a workout for this day</p>`;
