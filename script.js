@@ -1106,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (manageWorkoutsBtn) {
     manageWorkoutsBtn.onclick = () => {
       menuDropdown.style.display = 'none';
+      workoutModal.style.display = 'none';
       manageWorkoutsModal.style.display = 'flex';
       renderManageWorkouts();
     };

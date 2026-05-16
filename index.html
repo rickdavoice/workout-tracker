@@ -109,13 +109,15 @@
 
                 <div id="workoutList"></div>
 
+                
+<div style="text-align:center; margin-top:8px;">
+        <button id="manageWorkoutsBtn" class="full-width" style="max-width:320px; margin:8px auto; color:#fff; background:#6c3483;">Manage Workouts</button>
+    </div>
+
             </div>
         </div>
     </div>
-    <div style="text-align:center; margin-top:8px;">
-        <button id="manageWorkoutsBtn" class="full-width" style="max-width:320px; margin:8px auto;">Manage Workouts</button>
-    </div>
-
+    
      <!-- Exercises Modal -->
 
     <div id="exercisesModal" style="
@@ -144,22 +146,25 @@
                 <div id="closeExerciseModal" class="modal-close">✕</div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px;">
                     <div style="font-size:18px; font-weight:600;">Exercises</div>
-                    <button id="addExerciseBtn" class="save" style="padding:10px 14px; width:auto; font-size:14px;">+ Add</button>
+                    
                 </div>
+                
 
                 <div id="exerciseList"></div>
+
+                <button id="addExerciseBtn" class="save" style="padding:10px 14px; width:auto; font-size:14px; margin-top:10px;">+ Add</button>
 
                 <div id="exerciseForm" style="display:none; margin-top:18px; padding-top:18px; border-top:1px solid #333;">
                     <input id="exerciseName" placeholder="Exercise name" type="text" style="width:100%; margin-bottom:10px; padding:12px; border-radius:8px; border:none; background:#1e1e1e; color:#fff; box-sizing:border-box;" />
                     <select id="exerciseType" style="width:100%; margin-bottom:14px; padding:12px; border-radius:8px; border:none; background:#1e1e1e; color:#fff; box-sizing:border-box;">
                         <option value="">Select Type</option>
-                        <option value="Chest">Chest</option>
-                        <option value="Back">Back</option>
-                        <option value="Shoulders">Shoulders</option>
-                        <option value="Legs">Legs</option>
-                        <option value="Triceps">Triceps</option>
-                        <option value="Biceps">Biceps</option>
                         <option value="Abs">Abs</option>
+                        <option value="Back">Back</option>
+                        <option value="Biceps">Biceps</option>
+                        <option value="Chest">Chest</option>
+                        <option value="Legs">Legs</option>
+                        <option value="Shoulders">Shoulders</option>
+                        <option value="Triceps">Triceps</option>
                     </select>
                     <div style="display:flex; gap:10px;">
                         <button id="exerciseFormSave" class="save" style="flex:1; padding:12px;">Save</button>
