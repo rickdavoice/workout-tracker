@@ -144,8 +144,10 @@ body {
 }
 
 .sets-pill-note {
-  font-size: 16px;
-  opacity: 0.8;
+  font-size: 18px;
+  opacity: 0.9;
+  margin-left: 12px;
+  line-height: 1;
 }
 .sets-pill-weight {
   min-width: 75px;

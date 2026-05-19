@@ -562,14 +562,11 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
   // Last set for this exercise **today**
   const lastSetToday = [...setsToday].reverse().find(s => s.exerciseID === exId);
 
-  const exNameForCheck = ((typeof exercises[exId] === 'string' ? exercises[exId] : exercises[exId]?.name) || "").toLowerCase();
-  const isPullUp = exNameForCheck.includes("pull up");
-
   // Last inputs memory for this exercise today
   const lastInput = lastInputByDate[currentDate]?.[exId] || {};
 
   inputState = {
-    weight: lastSetToday?.weight ?? lastInput.weight ?? (isPullUp ? "0" : ""),
+    weight: lastSetToday?.weight ?? lastInput.weight ?? "",
     reps: lastSetToday?.reps ?? lastInput.reps ?? "",
     notes: "",
     lastExId: exId
@@ -710,7 +707,7 @@ return `<div class="sets-pill" onclick="editSet('${s.id}')">
       <span class="sets-pill-weight">${s.weight}<span class="sets-pill-unit"> lbs</span></span>
       <span class="sets-pill-reps">${s.reps}<span class="sets-pill-unit"> reps</span></span>
     </div>
-    ${hasNote ? `<div class="sets-pill-note">(note)</div>` : ``}
+    ${hasNote ? `<div class="sets-pill-note" title="Notes">📝</div>` : ``}
   </div>
 </div>`;
   }).join("");
@@ -777,17 +774,21 @@ async function saveSet(){
   const exId = workouts[currentWorkoutId].exercises[currentIndex];
   if(!exId) return;
 
-  const weight = document.getElementById("weight").value;
+  let weight = document.getElementById("weight").value;
   const reps = document.getElementById("reps").value;
 
   // Fix: safely handle notes
   const notesEl = document.getElementById("notes");
   const notes = notesEl ? notesEl.value : "";
 
+  if(!weight){
+    weight = "0";
+  }
+
   inputState = { weight, reps, notes, lastExId: exId };
 
-  if(!weight || !reps){
-    alert("Enter weight & reps");
+  if(!reps){
+    alert("Enter reps");
     return;
   }
 
