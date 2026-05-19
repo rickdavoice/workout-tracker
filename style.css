@@ -670,10 +670,26 @@ button {
   overflow: hidden;
   position: relative;
   width: 100%;
-  height: auto;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
 }
 
 #exerciseCard {
   position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   transition: transform 0.25s ease-in-out; /* quick slide */
+  min-height: 0;
+}
+
+.card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }

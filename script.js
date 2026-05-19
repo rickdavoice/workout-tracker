@@ -363,6 +363,14 @@ async function loadHistory() {
   }
 }
 
+async function refreshExerciseView() {
+  if (activeTab === 'history') {
+    await loadHistory();
+  } else {
+    loadExercise();
+  }
+}
+
 function historyHTML() {
   if (isLoadingHistory) {
     return `<div style="opacity:0.6;">Loading...</div>`;
@@ -597,7 +605,7 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
       }
 
       container.innerHTML = "";
-      loadExercise();
+      refreshExerciseView();
 
       const newCard = document.getElementById("exerciseCard");
       if (newCard) {
@@ -649,6 +657,7 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
   <button class="tab ${activeTab === 'history' ? 'active' : ''}" onclick="switchTab('history')">History</button>
 </div>
 
+      ${activeTab === 'track' ? `
       <div class="input-group">
         <button onclick="changeValue('weight',-2.5)">-</button>
         <input id="weight" placeholder="Weight (lbs)" type="number" value="${inputState.weight}">
@@ -667,13 +676,14 @@ if (editingSetId === null && (inputState.lastExId !== exId || lastLoadedDate !==
         </div>
 
         <div class="button-row">
-  <button class="half-width save update" onclick="updateSet()">Update</button>
-  <button class="half-width delete" onclick="deleteSet(editingSetId)">Delete</button>
-</div>
+          <button class="half-width save update" onclick="updateSet()">Update</button>
+          <button class="half-width delete" onclick="deleteSet(editingSetId)">Delete</button>
+        </div>
         <button class="full-width cancel" onclick="cancelEdit()">Cancel</button>
       ` : `
         <button class="full-width save" onclick="saveSet()">Save</button>
       `}
+      ` : ''}
 
       <div class="sets">
   ${activeTab === 'track' ? setsHTML : historyHTML()}
@@ -867,11 +877,11 @@ function nextExercise(){
   if(!workouts[currentWorkoutId]) return;
   if(currentIndex<workouts[currentWorkoutId].exercises.length-1){
     currentIndex++;
-    loadExercise();
+    refreshExerciseView();
   } else {
     alert("Workout Complete!");
     currentIndex = 0;
-    loadExercise();
+    refreshExerciseView();
   }
 }
 
@@ -880,7 +890,7 @@ function loadWorkout(workoutId){
   currentWorkoutId = workoutId;
   currentIndex = 0;
   updateTabs(workoutId);
-  loadExercise();
+  refreshExerciseView();
   // generateCalendar();
 }
 
@@ -930,7 +940,7 @@ function renderWorkoutList() {
   workoutModal.style.display = 'none';
 
   // Load exercises for this day/workout
-  loadExercise();
+  refreshExerciseView();
   updateTodayWorkoutName();
 };
 
