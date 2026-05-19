@@ -53,6 +53,11 @@ body {
   color: #fff;
   border: 2px solid #6c3483;
 }
+.full-calendar-day.today:not(.selected) {
+  background: #4a4f57;
+  color: #f5f6fa;
+  border: 1px solid #5f646d;
+}
 .full-calendar-header {
   font-weight: bold;
   color: #fff;

@@ -1209,19 +1209,22 @@ const year = calendarDate.getFullYear();
       html += `<div></div>`;
     }
 
+    const todayIso = getLocalISODate();
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = getLocalISODate(new Date(year, month, day));
-      const selected = iso === currentDate ? 'selected' : '';
+      const isSelected = iso === currentDate;
+      const isToday = iso === todayIso;
+      const classes = [isSelected ? 'selected' : '', isToday ? 'today' : ''].filter(Boolean).join(' ');
       const dayLogs = logCache[iso] || {};
-const workoutIds = Object.keys(dayLogs);
+      const workoutIds = Object.keys(dayLogs);
 
-const dotsHTML = workoutIds.map(wId => {
-  const color = workoutColors[wId] || "#888";
-  return `<span class="calendar-dot" style="background:${color}"></span>`;
-}).join("");
+      const dotsHTML = workoutIds.map(wId => {
+        const color = workoutColors[wId] || "#888";
+        return `<span class="calendar-dot" style="background:${color}"></span>`;
+      }).join("");
 
-html += `
-  <div class='full-calendar-day ${selected}' data-iso='${iso}'>
+      html += `
+  <div class='full-calendar-day ${classes}' data-iso='${iso}'>
     <div>${day}</div>
     <div class="calendar-dots">${dotsHTML}</div>
   </div>
