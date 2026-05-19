@@ -32,26 +32,14 @@
 
 <body>
     <h1>Workout Tracker</h1>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+    <div class="top-bar">
 
-        <div id="dateAndWorkout" style="display:flex; align-items:center; gap:12px;">
-            <div id="todayDate" style="font-size:14px; color:#aaa; font-weight:600;"></div>
-            <div id="todayWorkout" style=" font-size:18px; font-weight:bold; color:#fff; padding-left:40px;"></div>
+        <div id="dateAndWorkout" class="date-workout">
+            <div id="todayDate" class="today-date"></div>
+            <div id="todayWorkout" class="today-workout"></div>
         </div>
-        <button id="calendarBtn"
-            style="margin-left:auto; background:#6c3483; color:#fff; border-radius:8px; padding:12px 20px; font-size:18px; border:none; cursor:pointer;">≡</button>
-        <div id="menuDropdown" style="
-  display:none;
-  position:absolute;
-  top:60px;
-  right:15px;
-  background:#23272a;
-  border-radius:10px;
-  box-shadow:0 8px 24px #0006;
-  overflow:hidden;
-  z-index:2000;
-  min-width:160px;
-">
+        <button id="calendarBtn" class="menu-toggle">≡</button>
+        <div id="menuDropdown" class="dropdown-menu">
             <div class="menu-item" id="openCalendar">📅 Calendar</div>
             <div class="menu-item" id="openWorkouts">💪 Workouts</div>
             <div class="menu-item" id="openExercises">🏋️ Exercises</div>
@@ -63,10 +51,9 @@
   
 
     <!-- Calendar Modal -->
-    <div id="calendarModal"
-        style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#000a; z-index:1000; justify-content:center; align-items:center;">
+    <div id="calendarModal" class="modal-backdrop">
         <div class="calendar-modal-content">
-            <div style="position:relative; width:100%;">
+            <div class="modal-inner">
 
                 <div id="closeCalendarModal" class="modal-close">✕</div>
 
@@ -79,40 +66,21 @@
 
     <!-- Workout Modal -->
 
-    <div id="workoutModal" style="
-  display:none;
-  position:fixed;
-  top:0;
-  left:0;
-  width:100vw;
-  height:100vh;
-  background:#000a;
-  z-index:1000;
-  justify-content:center;
-  align-items:center;
-">
-        <div style="
-    background:#23272a;
-    border-radius:18px;
-    padding:24px;
-    min-width:300px;
-    max-width:90vw;
-  ">
+    <div id="workoutModal" class="modal-backdrop">
+        <div class="modal-dialog">
 
-
-            <div style="position:relative;">
+            <div class="modal-inner">
 
                 <div id="closeWorkoutModal" class="modal-close">✕</div>
-                <div style="font-size:18px; margin-bottom:16px; font-weight:600;">
+                <div class="modal-heading">
                     Select Workout
                 </div>
 
                 <div id="workoutList"></div>
 
-                
-<div style="text-align:center; margin-top:8px;">
-        <button id="manageWorkoutsBtn" class="full-width" style="max-width:320px; margin:8px auto; color:#fff; background:#6c3483;">Manage Workouts</button>
-    </div>
+                <div class="modal-action">
+                    <button id="manageWorkoutsBtn" class="full-width save">Manage Workouts</button>
+                </div>
 
             </div>
         </div>
@@ -120,43 +88,23 @@
     
      <!-- Exercises Modal -->
 
-    <div id="exercisesModal" style="
-  display:none;
-  position:fixed;
-  top:0;
-  left:0;
-  width:100vw;
-  height:100vh;
-  background:#000a;
-  z-index:1000;
-  justify-content:center;
-  align-items:center;
-">
-        <div style="
-    background:#23272a;
-    border-radius:18px;
-    padding:24px;
-    min-width:300px;
-    max-width:90vw;
-  ">
+    <div id="exercisesModal" class="modal-backdrop">
+        <div class="modal-dialog">
 
-
-            <div style="position:relative;">
+            <div class="modal-inner">
 
                 <div id="closeExerciseModal" class="modal-close">✕</div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px;">
-                    <div style="font-size:18px; font-weight:600;">Exercises</div>
-                    
+                <div class="modal-header-row">
+                    <div class="modal-heading">Exercises</div>
                 </div>
-                
 
                 <div id="exerciseList"></div>
 
-                <button id="addExerciseBtn" class="save" style="padding:10px 14px; width:auto; font-size:14px; margin-top:10px;">+ Add</button>
+                <button id="addExerciseBtn" class="save button-compact">+ Add</button>
 
-                <div id="exerciseForm" style="display:none; margin-top:18px; padding-top:18px; border-top:1px solid #333;">
-                    <input id="exerciseName" placeholder="Exercise name" type="text" style="width:100%; margin-bottom:10px; padding:12px; border-radius:8px; border:none; background:#1e1e1e; color:#fff; box-sizing:border-box;" />
-                    <select id="exerciseType" style="width:100%; margin-bottom:14px; padding:12px; border-radius:8px; border:none; background:#1e1e1e; color:#fff; box-sizing:border-box;">
+                <div id="exerciseForm" class="modal-form-section">
+                    <input id="exerciseName" class="form-input" placeholder="Exercise name" type="text" />
+                    <select id="exerciseType" class="form-select">
                         <option value="">Select Type</option>
                         <option value="Abs">Abs</option>
                         <option value="Back">Back</option>
@@ -166,9 +114,9 @@
                         <option value="Shoulders">Shoulders</option>
                         <option value="Triceps">Triceps</option>
                     </select>
-                    <div style="display:flex; gap:10px;">
-                        <button id="exerciseFormSave" class="save" style="flex:1; padding:12px;">Save</button>
-                        <button id="exerciseFormCancel" class="cancel" style="flex:1; padding:12px; background:#e74c3c;">Cancel</button>
+                    <div class="form-row">
+                        <button id="exerciseFormSave" class="save half-width">Save</button>
+                        <button id="exerciseFormCancel" class="cancel half-width">Cancel</button>
                     </div>
                 </div>
 
@@ -179,44 +127,25 @@
 
 
     <!-- Manage Workouts Modal -->
-    <div id="manageWorkoutsModal" style="
-  display:none;
-  position:fixed;
-  top:0;
-  left:0;
-  width:100vw;
-  height:100vh;
-  background:#000a;
-  z-index:1000;
-  justify-content:center;
-  align-items:center;
-">
-        <div style="
-    background:#23272a;
-    border-radius:18px;
-    padding:24px;
-    min-width:300px;
-    max-width:90vw;
-    width: min(640px, 90vw);
-  ">
-            <div style="position:relative;">
+    <div id="manageWorkoutsModal" class="modal-backdrop">
+        <div class="modal-dialog wide">
+            <div class="modal-inner">
                 <div id="closeManageWorkoutsModal" class="modal-close">✕</div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px;">
-                    <div style="font-size:18px; font-weight:600;">Manage Workouts</div>
+                <div class="modal-header-row">
+                    <div class="modal-heading">Manage Workouts</div>
                 </div>
 
-                <div id="manageWorkoutsList" style="max-height:56vh; overflow:auto;"></div>
+                <div id="manageWorkoutsList" class="scrollable-list"></div>
 
-                <div id="workoutEditForm" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid #333;">
-                    <input id="workoutNameInput" placeholder="Workout name" type="text" style="width:100%; margin-bottom:10px; padding:12px; border-radius:8px; border:none; background:#1e1e1e; color:#fff; box-sizing:border-box;" />
+                <div id="workoutEditForm" class="modal-form-section">
+                    <input id="workoutNameInput" class="form-input" placeholder="Workout name" type="text" />
 
-                    <div id="workoutExercisesList" style="max-height:220px; overflow:auto; margin-bottom:12px; padding:6px 0;">
-                        <!-- populated dynamically with checkboxes for exercises -->
+                    <div id="workoutExercisesList" class="scrollable-list spaced">
                     </div>
 
-                    <div style="display:flex; gap:10px;">
-                        <button id="workoutEditSave" class="save" style="flex:1; padding:12px;">Save</button>
-                        <button id="workoutEditCancel" class="cancel" style="flex:1; padding:12px; background:#e74c3c;">Cancel</button>
+                    <div class="form-row">
+                        <button id="workoutEditSave" class="save half-width">Save</button>
+                        <button id="workoutEditCancel" class="cancel half-width">Cancel</button>
                     </div>
                 </div>
 
